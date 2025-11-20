@@ -23,7 +23,7 @@ def service(repo, logger):
 
 
 def test_play_move_applies_move(repo, logger):
-    s = GameSession("s1", logger=logger)
+    s = GameSession("s1", player_x_id="P1", player_o_id="P2", logger=logger)
     repo.save("s1", s)
 
     service = GameService(session_repository=repo, logging_service=logger)
@@ -34,19 +34,18 @@ def test_play_move_applies_move(repo, logger):
 
 
 def test_play_move_calls_logger(repo, logger):
-    s = GameSession("s1", logger=logger)
+    s = GameSession("s1", player_x_id="P1", player_o_id="P2", logger=logger)
     repo.save("s1", s)
 
     service = GameService(session_repository=repo, logging_service=logger)
 
     service.apply_move("s1", player_id="P1", move_index=0)
 
-    # logger.log_move must have been called
     assert logger.log_move.called
 
 
 def test_play_move_returns_updated_session(repo, logger):
-    s = GameSession("s1", logger=logger)
+    s = GameSession("s1", player_x_id="P1", player_o_id="P2", logger=logger)
     repo.save("s1", s)
 
     service = GameService(session_repository=repo, logging_service=logger)
@@ -57,15 +56,17 @@ def test_play_move_returns_updated_session(repo, logger):
 
 
 def test_invalid_move_does_not_call_logger(repo, logger):
-    s = GameSession("s1", logger=logger)
-    s.make_move(0)  # X plays
+    s = GameSession("s1", player_x_id="P1", player_o_id="P2", logger=logger)
     repo.save("s1", s)
 
+    # Apply first valid move
     service = GameService(session_repository=repo, logging_service=logger)
+    service.apply_move("s1", "P1", 0)
 
     previous_calls = logger.log_move.call_count
-    with pytest.raises(Exception):
-        service.apply_move("s1", "P1", 0)  # same cell
 
-    # No logging should occur on invalid moves
+    # Wrong player tries to move
+    with pytest.raises(Exception):
+        service.apply_move("s1", "P1", 1)  # P1 cannot play twice
+
     assert logger.log_move.call_count == previous_calls

@@ -34,6 +34,7 @@ class LoggingClient:
             "moveIndex": move_index,
             "timestamp": timestamp.isoformat()
         }
+        print(payload)
         self._post("/move", payload)
 
     def log_state(self, session_id: str, board_state,
@@ -45,6 +46,7 @@ class LoggingClient:
             "moveCount": move_count,
             "timestamp": timestamp.isoformat()
         }
+        print(payload)
         self._post("/state", payload)
 
     def log_end(self, session_id: str, result: str,
@@ -55,8 +57,5 @@ class LoggingClient:
             "finalBoardState": final_board_state,
             "timestamp": timestamp.isoformat()
         }
+        print(payload)
         self._post("/end", payload)
-
-
-
-

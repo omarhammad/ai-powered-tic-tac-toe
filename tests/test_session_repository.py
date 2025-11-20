@@ -4,7 +4,7 @@ from infrastructure.repositories.SessionRepository import SessionRepository
 
 def test_save_session():
     repo = SessionRepository()
-    fake_session = GameSession("abc")
+    fake_session = GameSession("abc", "PX", "PO")
 
     repo.save("abc", fake_session)
 
@@ -13,7 +13,7 @@ def test_save_session():
 
 def test_find_existing_session():
     repo = SessionRepository()
-    fake_session = GameSession("abc")
+    fake_session = GameSession("abc", "PX", "PO")
     repo.save("abc", fake_session)
 
     found = repo.find("abc")

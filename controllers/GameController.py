@@ -6,6 +6,7 @@ from starlette.responses import HTMLResponse
 from controllers.dtos.CreateSessionRequest import CreateSessionRequest
 from controllers.dtos.MoveRequest import MoveRequest
 from controllers.dtos.MoveResponse import MoveResponse
+from domain.GameSession import GameSession
 from infrastructure.clients.LoggingClient import LoggingClient
 from infrastructure.repositories.SessionRepository import SessionRepository
 from services.GameService import GameService
@@ -26,15 +27,17 @@ service = GameService(session_repository=repo, logging_service=logger)
 def create_session(req: CreateSessionRequest):
     session_id = str(uuid4())
 
-    session = service.create_session(
+    session : GameSession = service.create_session(
         session_id=session_id,
         player_x=req.playerX,
-        player_o=req.playerO
+        player_o=req.playerO,
+        player_x_is_ai=req.playerXIsAI,
+        player_o_is_ai=req.playerOIsAI
     )
 
     return {
-        "sessionId": session_id,
-        "playUrl": f"/play/{session_id}"
+        "sessionId": session.session_id,
+        "playUrl": f"/play/{session.session_id}"
     }
 
 
@@ -53,12 +56,12 @@ def apply_move(req: MoveRequest):
         )
     except ValueError:
         raise HTTPException(status_code=404, detail="Session not found")
-    except Exception:
-        raise HTTPException(status_code=400, detail="Illegal move")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     return MoveResponse(
         board=session.board.get_state(),
-        currentTurn=session.current_player.value,
+        currentTurn=session.current_player.mark.value,        # UPDATED
         isFinished=session.is_finished,
         winner=session.winner.value if session.winner else None
     )

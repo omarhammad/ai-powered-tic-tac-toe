@@ -1,25 +1,38 @@
-from domain.GameSession import GameSession
+from domain.GameSession import GameSession, Player
+from infrastructure.clients.LoggingClient import LoggingClient
 from infrastructure.repositories.SessionRepository import SessionRepository
 
 
 class GameService:
     """
-    Placeholder service layer reference.
-    Replace this with your real GameService instance.
+    Service Layer:
+    - Creates sessions
+    - Handles moves
+    - Enforces turn order
+    - Handles AI or human turns
     """
 
-    def __init__(self, session_repository: SessionRepository, logging_service, ai_strategy_x=None, ai_strategy_o=None):
+    def __init__(self, session_repository: SessionRepository, logging_service,
+                 ai_strategy_x=None, ai_strategy_o=None):
         self.repo = session_repository
         self.logger = logging_service
         self.ai_x = ai_strategy_x
         self.ai_o = ai_strategy_o
 
-    def create_session(self, session_id: str, player_x: str, player_o: str):
-
+    def create_session(
+            self,
+            session_id: str,
+            player_x: str,
+            player_o: str,
+            player_x_is_ai: bool = False,
+            player_o_is_ai: bool = False
+    ):
         session = GameSession(
             session_id=session_id,
             player_x_id=player_x,
             player_o_id=player_o,
+            player_x_is_ai=player_x_is_ai,
+            player_o_is_ai=player_o_is_ai,
             logger=self.logger
         )
         self.repo.save(session_id, session)
@@ -33,25 +46,37 @@ class GameService:
         if not session:
             raise ValueError("Session not found")
 
-        # AI or human handled inside GameService
-        self.play_turn(session, human_move_index=move_index)
+        current = session.current_player
 
-        return session
+        if current.is_ai:
+            raise Exception("It is the AI's turn, human move not allowed")
 
-    # Uses the AI-aware logic from the previous layer
+        if player_id != current.player_id:
+            raise Exception("It's not your turn")
+
+        return self.play_turn(session, human_move_index=move_index)
+
     def play_turn(self, session: GameSession, human_move_index=None):
         if session.is_finished:
             return session
 
-        if session.current_player.value == "X" and self.ai_x:
-            move = self.ai_x.choose_move(session)
-        elif session.current_player.value == "O" and self.ai_o:
-            move = self.ai_o.choose_move(session)
+        current = session.current_player
+
+        if current.is_ai:
+            if current.mark == current.mark.X and self.ai_x:
+                move = self.ai_x.choose_move(session)
+            elif current.mark == current.mark.O and self.ai_o:
+                move = self.ai_o.choose_move(session)
+            else:
+                raise Exception("No AI strategy assigned for AI player")
         else:
             move = human_move_index
 
         success = session.make_move(move)
         if not success:
             raise Exception("Invalid move")
+
+        if not session.is_finished and session.current_player.is_ai:
+            return self.play_turn(session)
 
         return session
