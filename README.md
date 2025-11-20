@@ -114,3 +114,84 @@ I need:
 Keep everything simple and written in clean Python.
 ```
 
+
+---
+
+## Prompt 6 — Build the FastAPI Controller Layer
+**Purpose:** Expose REST endpoints for the platform and frontend.
+
+**Prompt:**
+```
+Please create the API Layer (FastAPI controllers) for my layered architecture game engine.
+
+The controllers should include:
+
+1. POST /session/create   
+   - Called by the Java Game BC  
+   - Creates a new GameSession  
+   - Returns sessionId and the URL for the game UI page
+
+2. POST /move  
+   - Called by the game frontend  
+   - Applies a move through the Service Layer  
+   - Logs the move to the Java backend  
+   - Returns the updated board and turn
+
+3. GET /play/{sessionId}  
+   - Returns the HTML template for the game UI
+
+The controllers should call into the Service Layer and not talk to Domain or Infrastructure directly.
+```
+
+---
+
+## Prompt 7 — Create Unit Tests (Human vs Human)
+**Purpose:** Build the required unit test suite for the Domain and Service layers.
+
+**Prompt:**
+```
+Please create a complete pytest unit test suite for my Python Tic-Tac-Toe game engine using a layered architecture.
+
+Important notes:
+- The AI feature is NOT implemented yet, so please test only Human vs Human gameplay.
+- The Java Game BC logging backend does not exist yet, so the LoggingClient must be mocked using a simple stub or MagicMock.
+- The tests should focus on testing the Domain Layer and the Service Layer.
+
+Tests needed:
+
+1. Test GameSession (Domain Layer):
+   - A valid move is applied correctly.
+   - An invalid move (cell already taken) raises an exception.
+   - An invalid move (playing when it's not your turn) raises an exception.
+   - The turn switches between players after each valid move.
+   - Win detection works for:
+     * Horizontal rows
+     * Vertical columns
+     * Both diagonals
+   - A draw is detected when the board is full and no winner exists.
+
+2. Test GameService (Application/Service Layer):
+   - play_move() loads the session from the repository and applies a move.
+   - play_move() calls logger.log_move() with the correct arguments (mocked logger).
+   - play_move() returns the updated GameSession.
+   - If the move is invalid, play_move() must NOT call the logger.
+
+3. Test SessionRepository (Infrastructure layer — in-memory):
+   - Saving a session stores it correctly.
+   - Retrieving a session returns the right object.
+   - Retrieving a non-existing session returns None.
+
+General rules:
+- Use pytest for all tests.
+- Use MagicMock from unittest.mock to mock the LoggingClient.
+- Do NOT write any tests for AI, since AI is not implemented yet.
+- Keep all tests easy to read and suitable for a student project.
+
+Please output these files:
+- tests/test_game_session.py
+- tests/test_game_service.py
+- tests/test_session_repository.py
+
+Make sure the code is clean, simple, and ready to run in my current project.
+```
+
