@@ -131,15 +131,23 @@ The controllers should include:
    - Creates a new GameSession  
    - Returns sessionId and the URL for the game UI page
 
-2. POST /move  
+2. GET /sessions/{sessionId}
+
+   - Called by the game frontend (game.js)
+   - Returns the full current game session as JSON, including: 
+                  sessionId, board, currentTurn, playerX, playerO, isFinished, winner
+   - Allows the UI to initialize and update without injecting variables in HTML
+   - Uses only the Service Layer
+
+3. POST /move  
    - Called by the game frontend  
    - Applies a move through the Service Layer  
    - Logs the move to the Java backend  
    - Returns the updated board and turn
 
-3. GET /play/{sessionId}  
+4. GET /play/{sessionId}  
    - Returns the HTML template for the game UI
-
+   
 The controllers should call into the Service Layer and not talk to Domain or Infrastructure directly.
 ```
 
@@ -194,4 +202,124 @@ Please output these files:
 
 Make sure the code is clean, simple, and ready to run in my current project.
 ```
+
+---
+
+## Prompt 8 — Base HTML Template
+
+**Purpose:** Generate the initial play.html structure with only sessionId injected.
+
+**Prompt:**
+
+```
+Generate a clean base play.html template for my Tic-Tac-Toe game. FastAPI injects only one variable:
+
+const SESSION_ID = "{{ sessionId }}";
+
+All other game data will be fetched in JavaScript using:
+GET /sessions/{SESSION_ID}
+
+Create a minimal HTML structure including:
+- Game title
+- A section for session ID, players, current turn, and winner (empty placeholders filled by JS)
+- A <div id="board"></div> for the 3×3 grid
+- Link to /static/css/style.css
+- Script tag for /static/js/game.js
+- A script block that contains only the SESSION_ID variable
+
+Keep it simple and structural. No styling or JS logic yet.
+
+Output only the play.html code.
+```
+
+---
+
+## Prompt 9 — Enhanced HTML + CSS
+
+**Purpose:** Improve play.html and generate a modern, attractive style.css.
+
+**Prompt:**
+
+```
+Refine the previously generated play.html to prepare it for styling. Keep injecting only:
+
+const SESSION_ID = "{{ sessionId }}";
+
+Add class and ID hooks needed for CSS:
+- .container
+- .players
+- .turn
+- .status
+- #winner
+- #board
+- .cell
+
+Then generate a complete style.css with a modern, attractive UI:
+- Centered responsive layout
+- Clean fonts and spacing
+- A 3×3 responsive grid with equal cells
+- Rounded corners and soft shadows
+- Hover effect for empty cells
+- Large, bold X and O styling
+- Styled winner/draw message
+- Mobile-friendly layout
+
+Output two files:
+1) updated play.html
+2) style.css
+```
+
+---
+
+## Prompt 10 — Full JavaScript Logic
+
+**Purpose:** Generate game.js using only injected sessionId and backend endpoints.
+
+**Prompt:**
+
+```
+Generate a complete game.js file for the Tic-Tac-Toe frontend.
+
+Only one variable is injected into the HTML:
+const SESSION_ID = "{{ sessionId }}";
+
+All game state must be fetched from:
+GET /sessions/{SESSION_ID}
+
+The response includes:
+sessionId, board, currentTurn,
+playerX { id, isAI }, playerO { id, isAI },
+isFinished, winner.
+
+Moves are applied via:
+POST /move
+Body: { sessionId, playerId, moveIndex }
+
+JavaScript requirements:
+1. On page load:
+   - Fetch /sessions/{SESSION_ID}
+   - Fill UI: players, turn, winner/draw
+   - Render the 3×3 board
+
+2. Board rendering:
+   - Create clickable cells in #board
+   - Ignore clicks on filled cells or when game is finished
+
+3. On valid click:
+   - Determine player ID based on currentTurn
+   - POST /move
+   - Update UI based on returned state
+
+4. Use clean helper functions:
+   - loadSession()
+   - renderBoard()
+   - renderInfo()
+   - sendMove(index)
+   - updateState()
+
+Use only vanilla JavaScript. Output only the game.js code.
+```
+
+---
+
 

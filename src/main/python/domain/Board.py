@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from domain.Mark import Mark
+from src.main.python.domain.Mark import Mark
 
 
 class Board:

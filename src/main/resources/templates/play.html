@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tic-Tac-Toe</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body class="dark">
+
+<script>
+    const SESSION_ID = "{{ sessionId }}";
+    const PLAYER_ID  = "{{ playerId }}";
+</script>
+
+<div class="page-wrapper">
+
+    <h1 class="title">TIC-TAC-TOE</h1>
+
+    <div id="you-badge" class="you-badge"></div>
+
+    <div class="glass-card session-panel">
+        <div class="session-row">
+            <span class="session-label">Session:</span>
+            <span id="session-short" class="session-value"></span>
+        </div>
+
+        <div class="player-row">
+            <div class="icon x-icon"></div>
+            <span id="player-x-name" class="player-name"></span>
+            <span id="player-x-role" class="player-role"></span>
+        </div>
+
+        <div class="player-row">
+            <div class="icon o-icon"></div>
+            <span id="player-o-name" class="player-name"></span>
+            <span id="player-o-role" class="player-role"></span>
+        </div>
+    </div>
+
+    <!-- NEW: The Unified Info Banner -->
+    <div id="info-banner" class="info-banner"></div>
+
+    <div id="board" class="board"></div>
+
+</div>
+
+<script src="/static/js/game.js"></script>
+
+</body>
+</html>

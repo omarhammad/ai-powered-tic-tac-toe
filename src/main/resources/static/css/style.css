@@ -1,0 +1,144 @@
+body.dark {
+    background: #0b1220;
+    color: #e2e8f0;
+    font-family: "Inter", sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.page-wrapper {
+    text-align: center;
+    padding: 40px 0;
+}
+
+.title {
+    font-size: 3.2rem;
+    font-weight: 700;
+    margin-bottom: 30px;
+    letter-spacing: 6px;
+    color: #f1f5f9;
+}
+
+/* Badge */
+.you-badge {
+    display: inline-block;
+    padding: 10px 22px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 12px;
+    margin-bottom: 28px;
+}
+
+/* Player card */
+.glass-card {
+    width: 420px;
+    margin: 0 auto 25px auto;
+    padding: 22px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 0 35px rgba(0,0,0,0.4);
+}
+
+.session-row {
+    margin-bottom: 16px;
+}
+
+.player-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 10px 0;
+}
+
+.icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+}
+
+.x-icon {
+    background: #3b82f6;
+    box-shadow: 0 0 12px rgba(59,130,246,0.7);
+}
+
+.o-icon {
+    background: #ef4444;
+    box-shadow: 0 0 12px rgba(239,68,68,0.7);
+}
+
+/* INFO BANNER */
+.info-banner {
+    width: 420px;
+    margin: 0 auto 22px auto;
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.08);
+    font-size: 1.15rem;
+    font-weight: 600;
+    transition: all 0.25s ease;
+}
+
+.info-your-turn {
+    color: #3b82f6;
+}
+
+.info-opponent-turn {
+    color: #ef4444;
+}
+
+.info-winner {
+    color: #10b981;
+}
+
+.info-draw {
+    color: #fbbf24;
+}
+
+.info-spectator {
+    color: #94a3b8;
+}
+
+/* BOARD */
+.board {
+    display: grid;
+    grid-template-columns: repeat(3, 115px);
+    grid-template-rows: repeat(3, 115px);
+    gap: 16px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.cell {
+    background: #111827;
+    border-radius: 14px;
+    position: relative;
+    cursor: pointer;
+    transition: 0.2s;
+    box-shadow: 0 0 20px rgba(0,0,0,0.4);
+}
+
+.cell:hover {
+    transform: translateY(-4px);
+}
+
+.cell span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 3rem;
+    font-weight: 700;
+}
+
+.cell.x span {
+    color: #3b82f6;
+}
+
+.cell.o span {
+    color: #ef4444;
+}
+
+.board.disabled .cell {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

@@ -1,10 +1,10 @@
 import pytest
 from unittest.mock import MagicMock
 
-from domain.GameSession import GameSession
-from domain.Mark import Mark
-from infrastructure.repositories.SessionRepository import SessionRepository
-from services.GameService import GameService
+from src.main.python.domain.GameSession import GameSession
+from src.main.python.domain.Mark import Mark
+from src.main.python.infrastructure.repositories.SessionRepository import SessionRepository
+from src.main.python.services.GameService import GameService
 
 
 @pytest.fixture
@@ -23,7 +23,8 @@ def service(repo, logger):
 
 
 def test_play_move_applies_move(repo, logger):
-    s = GameSession("s1", player_x_id="P1", player_o_id="P2", logger=logger)
+    # Verify that GameService correctly applies a valid move on the board
+    s = GameSession("s1", player_x_id="P1", player_o_id="P2")
     repo.save("s1", s)
 
     service = GameService(session_repository=repo, logging_service=logger)
@@ -34,7 +35,8 @@ def test_play_move_applies_move(repo, logger):
 
 
 def test_play_move_calls_logger(repo, logger):
-    s = GameSession("s1", player_x_id="P1", player_o_id="P2", logger=logger)
+    # Ensure GameService logs a move when a valid move is made
+    s = GameSession("s1", player_x_id="P1", player_o_id="P2")
     repo.save("s1", s)
 
     service = GameService(session_repository=repo, logging_service=logger)
@@ -45,7 +47,8 @@ def test_play_move_calls_logger(repo, logger):
 
 
 def test_play_move_returns_updated_session(repo, logger):
-    s = GameSession("s1", player_x_id="P1", player_o_id="P2", logger=logger)
+    # Check that apply_move returns the same session object from the repo
+    s = GameSession("s1", player_x_id="P1", player_o_id="P2")
     repo.save("s1", s)
 
     service = GameService(session_repository=repo, logging_service=logger)
@@ -56,17 +59,16 @@ def test_play_move_returns_updated_session(repo, logger):
 
 
 def test_invalid_move_does_not_call_logger(repo, logger):
-    s = GameSession("s1", player_x_id="P1", player_o_id="P2", logger=logger)
+    # Ensure that invalid moves do NOT cause the logger to be called
+    s = GameSession("s1", player_x_id="P1", player_o_id="P2")
     repo.save("s1", s)
 
-    # Apply first valid move
     service = GameService(session_repository=repo, logging_service=logger)
     service.apply_move("s1", "P1", 0)
 
     previous_calls = logger.log_move.call_count
 
-    # Wrong player tries to move
     with pytest.raises(Exception):
-        service.apply_move("s1", "P1", 1)  # P1 cannot play twice
+        service.apply_move("s1", "P1", 1)  # P1 trying to move twice
 
     assert logger.log_move.call_count == previous_calls

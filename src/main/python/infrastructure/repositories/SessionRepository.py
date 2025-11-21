@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from domain.GameSession import GameSession
+from src.main.python.domain.GameSession import GameSession
 
 
 class SessionRepository:

@@ -1,7 +1,7 @@
 from typing import Optional
 
-from domain.Board import Board
-from domain.Mark import Mark
+from src.main.python.domain.Board import Board
+from src.main.python.domain.Mark import Mark
 
 
 class Rules:
