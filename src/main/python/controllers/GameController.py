@@ -12,11 +12,6 @@ from src.main.python.infrastructure.clients.LoggingClient import LoggingClient
 from src.main.python.infrastructure.repositories.SessionRepository import SessionRepository
 from src.main.python.services.GameService import GameService
 
-# TODO
-#  2) update the player to have name then display that
-#  3) update the GameSession , so the logging happens in the GameService - DONE
-#  4) update the UI styles to a sketch.
-#  5) refine the code and understand better
 router = APIRouter()
 
 # Correct paths based on your WORKDIR
