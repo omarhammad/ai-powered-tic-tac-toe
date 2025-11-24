@@ -11,6 +11,7 @@ from src.main.python.domain.GameSession import GameSession
 from src.main.python.infrastructure.clients.LoggingClient import LoggingClient
 from src.main.python.infrastructure.repositories.SessionRepository import SessionRepository
 from src.main.python.services.GameService import GameService
+from src.main.python.services.RandomAiStrategy import RandomAiStrategy
 
 router = APIRouter()
 
@@ -21,8 +22,13 @@ templates = Jinja2Templates(directory="src/main/resources/templates")
 
 repo = SessionRepository()
 logger = LoggingClient(base_url="http://localhost:8080/api/logs")  # Java backend URL
-service = GameService(session_repository=repo, logging_service=logger)
 
+ai_o = RandomAiStrategy()
+service = GameService(
+    session_repository=repo,
+    logging_service=logger,
+    ai_strategy_o=ai_o,
+)
 
 # -------------------------------------------------------
 # 1. POST /session/create

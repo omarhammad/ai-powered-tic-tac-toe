@@ -8,8 +8,9 @@
 
 let state = null;
 let myRole = null;
-let moveCount = 0;
+let moveCount = -1;
 let pollingInterval = null;
+let isFetchingSession = false;
 
 // -----------------------------------------------------------
 window.addEventListener("DOMContentLoaded", () => {
@@ -19,17 +20,44 @@ window.addEventListener("DOMContentLoaded", () => {
 
 // -----------------------------------------------------------
 async function loadSession() {
-    const res = await fetch(`/sessions/${SESSION_ID}`);
-    if (!res.ok) return;
+    if (isFetchingSession) return;
+    isFetchingSession = true;
 
-    state = await res.json();
-    moveCount = state.board.filter(v => v !== null).length;
+    try {
+        const res = await fetch(`/sessions/${SESSION_ID}`);
+        if (!res.ok) return;
 
+        const snapshot = await res.json();
+        applyState(snapshot, { replace: true });
+    } finally {
+        isFetchingSession = false;
+    }
+}
+
+function applyState(snapshot, { replace = false } = {}) {
+    if (!snapshot || !snapshot.board) return;
+
+    const incomingMoveCount = countMoves(snapshot.board);
+    if (incomingMoveCount < moveCount) {
+        return; // Ignore stale poll results
+    }
+
+    state = (replace || !state)
+        ? { ...snapshot }
+        : { ...state, ...snapshot };
+
+    moveCount = incomingMoveCount;
     determineMyRole();
     renderUI();
 
-    // Stop polling if game is over
-    if (state.isFinished) clearInterval(pollingInterval);
+    if (state.isFinished && pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+    }
+}
+
+function countMoves(board) {
+    return board.filter(v => v !== null).length;
 }
 
 // -----------------------------------------------------------
@@ -138,7 +166,7 @@ async function tryMove(index) {
 
     const res = await fetch("/move", {
         method: "POST",
-        headers: {"Content-Type": "application/json"},
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             sessionId: SESSION_ID,
             playerId: PLAYER_ID,
@@ -147,11 +175,7 @@ async function tryMove(index) {
     });
 
     if (res.ok) {
-        state = await res.json();
-        moveCount = state.board.filter(v => v !== null).length;
-        renderUI();
-
-        // If move finishes game → stop polling
-        if (state.isFinished) clearInterval(pollingInterval);
+        const partialState = await res.json();
+        applyState(partialState);
     }
 }
