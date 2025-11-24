@@ -8,7 +8,8 @@ from src.main.python.controllers.dtos.CreateSessionRequest import CreateSessionR
 from src.main.python.controllers.dtos.MoveRequest import MoveRequest
 from src.main.python.controllers.dtos.MoveResponse import MoveResponse
 from src.main.python.domain.GameSession import GameSession
-from src.main.python.infrastructure.clients.LoggingClient import LoggingClient
+from src.main.python.infrastructure.clients.MlLoggingClient import MlLoggingClient
+from src.main.python.infrastructure.messaging.GameBcPublisher import GameBcPublisher
 from src.main.python.infrastructure.repositories.SessionRepository import SessionRepository
 from src.main.python.services.GameService import GameService
 from src.main.python.services.MctsAiStrategy import MCTS_DIFFICULTIES, MctsAiStrategy
@@ -19,18 +20,27 @@ router = APIRouter()
 templates = Jinja2Templates(directory="src/main/resources/templates")
 
 # Instantiate dependencies
-
 repo = SessionRepository()
-logger = LoggingClient(base_url="http://localhost:8080/api/logs")  # Java backend URL
+
+
+ml_logger = MlLoggingClient(
+    base_url="http://localhost:9000/api/logs"
+)
+
+game_bc_publisher = GameBcPublisher(
+    amqp_url="amqp://user:password@localhost:5671/",
+    exchange="game-events",
+    routing_key="tictactoe.state"
+)
 
 ai_registry = {}
-
 for ai_type, simulations in MCTS_DIFFICULTIES.items():
     ai_registry[ai_type] = MctsAiStrategy(simulations=simulations)
 
 service = GameService(
     session_repository=repo,
-    logging_service=logger,
+    ml_logger=ml_logger,
+    game_bc_publisher=game_bc_publisher,
     ai_strategies=ai_registry,
 )
 
@@ -38,7 +48,6 @@ service = GameService(
 # -------------------------------------------------------
 # 1. POST /session/create
 # -------------------------------------------------------
-
 @router.post("/session/create")
 def create_session(req: CreateSessionRequest, request: Request):
     session_id = str(uuid4())
@@ -60,14 +69,12 @@ def create_session(req: CreateSessionRequest, request: Request):
         "sessionId": session.session_id,
         "playUrl_X": f"{base_url}/play/{session.session_id}?player_id={session.player_x.player_id}",
         "playUrl_O": f"{base_url}/play/{session.session_id}?player_id={session.player_o.player_id}",
-
     }
 
 
 # -------------------------------------------------------
-# 2. GET /sessions/{sessionId}  <-- NEW ENDPOINT
+# 2. GET /sessions/{sessionId}
 # -------------------------------------------------------
-
 @router.get("/sessions/{sessionId}")
 def get_session_state(sessionId: str):
     session: GameSession = service.get_session(sessionId)
@@ -97,7 +104,6 @@ def get_session_state(sessionId: str):
 # -------------------------------------------------------
 # 3. POST /move
 # -------------------------------------------------------
-
 @router.post("/move", response_model=MoveResponse)
 def apply_move(req: MoveRequest):
     try:
@@ -113,7 +119,7 @@ def apply_move(req: MoveRequest):
 
     return MoveResponse(
         board=session.board.get_state(),
-        currentTurn=session.current_player.mark.value,  # UPDATED
+        currentTurn=session.current_player.mark.value,
         isFinished=session.is_finished,
         winner=session.winner.value if session.winner else None
     )

@@ -22,3 +22,6 @@ class Board:
 
     def is_full(self) -> bool:
         return all(c != Mark.EMPTY for c in self.cells)
+
+    def get_legal_moves(self):
+        return [i for i, cell in enumerate(self.cells) if cell == Mark.EMPTY]
