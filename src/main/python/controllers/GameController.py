@@ -11,7 +11,7 @@ from src.main.python.domain.GameSession import GameSession
 from src.main.python.infrastructure.clients.LoggingClient import LoggingClient
 from src.main.python.infrastructure.repositories.SessionRepository import SessionRepository
 from src.main.python.services.GameService import GameService
-from src.main.python.services.RandomAiStrategy import RandomAiStrategy
+from src.main.python.services.MctsAiStrategy import MCTS_DIFFICULTIES, MctsAiStrategy
 
 router = APIRouter()
 
@@ -23,12 +23,17 @@ templates = Jinja2Templates(directory="src/main/resources/templates")
 repo = SessionRepository()
 logger = LoggingClient(base_url="http://localhost:8080/api/logs")  # Java backend URL
 
-ai_o = RandomAiStrategy()
+ai_registry = {}
+
+for ai_type, simulations in MCTS_DIFFICULTIES.items():
+    ai_registry[ai_type] = MctsAiStrategy(simulations=simulations)
+
 service = GameService(
     session_repository=repo,
     logging_service=logger,
-    ai_strategy_o=ai_o,
+    ai_strategies=ai_registry,
 )
+
 
 # -------------------------------------------------------
 # 1. POST /session/create
@@ -45,7 +50,9 @@ def create_session(req: CreateSessionRequest, request: Request):
         player_x_name=req.player_x_name,
         player_o_name=req.player_o_name,
         player_x_is_ai=req.playerXIsAI,
-        player_o_is_ai=req.playerOIsAI
+        player_o_is_ai=req.playerOIsAI,
+        player_x_ai_type=req.playerXAiType,
+        player_o_ai_type=req.playerOAiType
     )
 
     base_url = str(request.base_url).rstrip("/")

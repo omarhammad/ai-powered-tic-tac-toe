@@ -1,9 +1,11 @@
 from datetime import datetime
+from typing import Dict, Optional
 
 from src.main.python.domain.GameSession import GameSession
 from src.main.python.domain.Mark import Mark
 from src.main.python.domain.Player import Player
 from src.main.python.infrastructure.repositories.SessionRepository import SessionRepository
+from src.main.python.services.AiStrategy import AiStrategy
 
 
 class GameService:
@@ -15,29 +17,52 @@ class GameService:
     - Performs ALL logging
     """
 
-    def __init__(self, session_repository: SessionRepository, logging_service,
-                 ai_strategy_x=None, ai_strategy_o=None):
+    def __init__(
+        self,
+        session_repository: SessionRepository,
+        logging_service,
+        ai_strategies: Dict[str, AiStrategy],
+        default_ai_type: str = "mcts_medium",
+    ):
         self.repo = session_repository
         self.logger = logging_service
-        self.ai_x = ai_strategy_x
-        self.ai_o = ai_strategy_o
+        self.ai_strategies = ai_strategies
+        self.default_ai_type = default_ai_type
+
+        if self.default_ai_type not in self.ai_strategies:
+            raise ValueError(
+                f"Default AI type '{self.default_ai_type}' is not in ai_strategies"
+            )
 
     # -------------------------------------------------------
     # SESSION CREATION
     # -------------------------------------------------------
     def create_session(
-            self,
-            session_id: str,
-            player_x_id: str,
-            player_o_id: str,
-            player_x_name: str,
-            player_o_name: str,
-            player_x_is_ai: bool = False,
-            player_o_is_ai: bool = False
+        self,
+        session_id: str,
+        player_x_id: str,
+        player_o_id: str,
+        player_x_name: str,
+        player_o_name: str,
+        player_x_is_ai: bool = False,
+        player_o_is_ai: bool = False,
+        player_x_ai_type: Optional[str] = None,
+        player_o_ai_type: Optional[str] = None,
     ):
-
-        player_x = Player(player_x_id, player_x_name, Mark.X, player_x_is_ai)
-        player_o = Player(player_o_id, player_o_name, Mark.O, player_o_is_ai)
+        player_x = Player(
+            player_x_id,
+            player_x_name,
+            Mark.X,
+            player_x_is_ai,
+            self._resolve_ai_type(player_x_is_ai, player_x_ai_type),
+        )
+        player_o = Player(
+            player_o_id,
+            player_o_name,
+            Mark.O,
+            player_o_is_ai,
+            self._resolve_ai_type(player_o_is_ai, player_o_ai_type),
+        )
         session = GameSession(
             session_id,
             player_x,
@@ -89,12 +114,7 @@ class GameService:
 
         # Decide move source
         if current.is_ai:
-            if current.mark == current.mark.X and self.ai_x:
-                move = self.ai_x.choose_move(session)
-            elif current.mark == current.mark.O and self.ai_o:
-                move = self.ai_o.choose_move(session)
-            else:
-                raise Exception("No AI strategy assigned for AI player")
+            move = self._choose_ai_move(session, current)
         else:
             move = human_move_index
 
@@ -108,7 +128,7 @@ class GameService:
             player_id=current.player_id,
             board_state=session.board.get_state(),
             move_index=move,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.utcnow(),
         )
 
         # Log UPDATED state
@@ -118,19 +138,16 @@ class GameService:
                 board_state=session.board.get_state(),
                 turn=session.current_player.mark.value,
                 move_count=session.move_count,
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow(),
             )
         else:
             # Log final state
-            result = (
-                f"{session.winner.value}-wins"
-                if session.winner else "draw"
-            )
+            result = f"{session.winner.value}-wins" if session.winner else "draw"
             self.logger.log_end(
                 session_id=session.session_id,
                 result=result,
                 final_board_state=session.board.get_state(),
-                timestamp=datetime.utcnow()
+                timestamp=datetime.utcnow(),
             )
 
         # Auto-play AI if needed
@@ -138,3 +155,26 @@ class GameService:
             return self.play_turn(session)
 
         return session
+
+    # -------------------------------------------------------
+    # AI helpers
+    # -------------------------------------------------------
+    def _resolve_ai_type(self, is_ai: bool, requested_type: Optional[str]) -> Optional[str]:
+        if not is_ai:
+            return None
+        if requested_type:
+            return requested_type
+        # AI and no explicit type → use default (we know it exists in ai_strategies)
+        return self.default_ai_type
+
+    def _choose_ai_move(self, session: GameSession, player: Player) -> int:
+        ai_type = player.ai_type
+        if not ai_type:
+            # Should not happen if _resolve_ai_type is always used for AI players
+            raise Exception("AI player has no ai_type set")
+
+        strategy = self.ai_strategies.get(ai_type)
+        if not strategy:
+            raise Exception(f"Unknown AI type '{ai_type}'")
+
+        return strategy.choose_move(session)
