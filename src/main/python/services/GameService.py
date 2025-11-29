@@ -12,7 +12,6 @@ from src.main.python.domain.GameState import GameState
 from src.main.python.infrastructure.clients.MlLoggingClient import MlLoggingClient
 
 
-
 class GameService:
     """
     Application Service Layer:
@@ -126,16 +125,17 @@ class GameService:
         if session.is_finished:
             if session.winner is None:
                 game_status = "DRAW"
-                winner_symbol = None
+                winner_id = None
                 reward = 0
             else:
                 winner_symbol = session.winner.value  # "X" or "O"
-                game_status = f"WIN_{winner_symbol}"
-                # reward from perspective of the player who just moved
+                winner_id = session.player_x.player_id if session.player_x.mark.value == session.winner.value else session.player_o.player_id
+                game_status = f"{winner_symbol}_WON"
+                # reward from the perspective of the player who just moved
                 reward = 1 if winner_symbol == current.mark.value else -1
         else:
             game_status = "IN_PROGRESS"
-            winner_symbol = None
+            winner_id = None
             reward = None
 
         # ---- ML logging (GameState) ----
@@ -151,14 +151,13 @@ class GameService:
         )
         self.ml_logger.log_game_state(ml_state)
 
-
         game_event = GameEvent(
             sessionId=session.session_id,
             boardState=session.board.get_state(),
-            currentPlayer=None if session.is_finished else session.current_player.mark.value,
+            currentPlayer=None if session.is_finished else current.player_id,
             moveNumber=session.move_count,
             gameStatus=game_status,
-            winner=winner_symbol,
+            winner=winner_id,
         )
         self.game_bc_publisher.publish_state(game_event)
 

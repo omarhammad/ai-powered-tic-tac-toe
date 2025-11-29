@@ -22,15 +22,14 @@ templates = Jinja2Templates(directory="src/main/resources/templates")
 # Instantiate dependencies
 repo = SessionRepository()
 
-
 ml_logger = MlLoggingClient(
     base_url="http://localhost:9000/api/logs"
 )
 
 game_bc_publisher = GameBcPublisher(
     amqp_url="amqp://user:password@localhost:5671/",
-    exchange="game-events",
-    routing_key="tictactoe.state"
+    exchange="game.events",
+    routing_key="game.tictactoe.state.updated.v1"
 )
 
 ai_registry = {}
@@ -50,10 +49,9 @@ service = GameService(
 # -------------------------------------------------------
 @router.post("/session/create")
 def create_session(req: CreateSessionRequest, request: Request):
-    session_id = str(uuid4())
 
     session: GameSession = service.create_session(
-        session_id=session_id,
+        session_id=req.sessionId,
         player_x_id=req.player_x_id,
         player_o_id=req.player_o_id,
         player_x_name=req.player_x_name,
@@ -67,8 +65,10 @@ def create_session(req: CreateSessionRequest, request: Request):
     base_url = str(request.base_url).rstrip("/")
     return {
         "sessionId": session.session_id,
-        "playUrl_X": f"{base_url}/play/{session.session_id}?player_id={session.player_x.player_id}",
-        "playUrl_O": f"{base_url}/play/{session.session_id}?player_id={session.player_o.player_id}",
+        "gamePlayableUrls": [
+            f"{base_url}/play/{session.session_id}?player_id={session.player_x.player_id}",
+            f"{base_url}/play/{session.session_id}?player_id={session.player_o.player_id}"
+        ]
     }
 
 

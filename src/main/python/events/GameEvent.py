@@ -1,3 +1,4 @@
+import datetime
 from dataclasses import dataclass
 from typing import List, Optional
 
@@ -5,10 +6,10 @@ from typing import List, Optional
 class GameEvent:
     sessionId: str
     boardState: List[Optional[str]]
-    currentPlayer: Optional[str]            # "X", "O", or None when terminal
+    currentPlayer: Optional[str]
     moveNumber: int
-    gameStatus: str                         # IN_PROGRESS / WIN_X / WIN_O / DRAW
-    winner: Optional[str] = None            # "X", "O", or None
+    gameStatus: str
+    winner: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
@@ -18,4 +19,5 @@ class GameEvent:
             "moveNumber": self.moveNumber,
             "gameStatus": self.gameStatus,
             "winner": self.winner,
+            "occurredAt": datetime.datetime.now(datetime.timezone.utc).isoformat()
         }

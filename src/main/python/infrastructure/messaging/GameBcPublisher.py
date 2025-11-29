@@ -1,7 +1,6 @@
 import json
 import pika
 from pika.exceptions import AMQPConnectionError, StreamLostError
-
 from src.main.python.events.GameEvent import GameEvent
 
 
@@ -13,8 +12,8 @@ class GameBcPublisher:
     def __init__(
             self,
             amqp_url: str,
-            exchange: str = "game-events",
-            routing_key: str = "tictactoe.state"
+            exchange: str = "game.events",
+            routing_key: str = "game.tictactoe.state.updated.v1"
     ):
         self.amqp_url = amqp_url
         self.exchange = exchange
@@ -33,6 +32,7 @@ class GameBcPublisher:
             self.connection = pika.BlockingConnection(params)
             self.channel = self.connection.channel()
 
+            # Make sure exchange exists
             self.channel.exchange_declare(
                 exchange=self.exchange,
                 exchange_type="topic",
@@ -41,29 +41,23 @@ class GameBcPublisher:
 
             print("RabbitMQ connected for GameBC publishing.")
 
-        except AMQPConnectionError as e:
-            print(f"[RabbitMQ] Connection failed: {e}")
-            raise
         except Exception as e:
-            print(f"[RabbitMQ] Unexpected error: {e}")
+            print(f"[RabbitMQ] Connection failure: {e}")
             raise
 
-    # --------------------------------------------------------
-    # PUBLISHER
-    # --------------------------------------------------------
+
     def publish_state(self, event: GameEvent):
         """
-        Publish the game event to RabbitMQ.
-        Automatically reconnects if connection was lost.
+        Publish the game event JSON to RabbitMQ.
+        Automatically reconnects on connection drop.
         """
+
         payload = event.to_dict()
         print("[GAME BC EVENT]", payload)
 
         try:
-            # Ensure connection
             self._ensure_connection()
 
-            # Send message
             self.channel.basic_publish(
                 exchange=self.exchange,
                 routing_key=self.routing_key,
@@ -72,11 +66,11 @@ class GameBcPublisher:
             )
 
         except (AMQPConnectionError, StreamLostError):
-            print("[RabbitMQ] Lost connection. Reconnecting...")
+            print("[RabbitMQ] Lost connection — reconnecting...")
             self.connection = None
             self.channel = None
 
-            # Try again once
+            # reconnect once
             self._ensure_connection()
 
             self.channel.basic_publish(
