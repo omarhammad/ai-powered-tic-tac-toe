@@ -1,19 +1,18 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
+from src.main.python.main import app
 
 client = TestClient(app)
 
 
 def test_choose_move_returns_valid_cell():
     """
-    /ai/choose-move should return a legal, empty cell index within 0–8.
+    /ai/choose-move should return a legal move index (0–8) on a non-terminal board.
     """
     state_json = {
         "board": ["X", "O", " ", " ", "X", " ", "O", " ", " "],
-        "current_player": "O",
-        "status": "RUNNING",
+        "current_player": "O"
     }
 
     resp = client.post("/ai/choose-move?difficulty=medium", json=state_json)
@@ -21,28 +20,26 @@ def test_choose_move_returns_valid_cell():
 
     data = resp.json()
     idx = data["index"]
-    row = data["row"]
-    col = data["col"]
+
+    # Compute row/col locally (API doesn't send them anymore)
+    row, col = divmod(idx, 3)
 
     # Basic checks
     assert 0 <= idx <= 8
     assert 0 <= row <= 2
     assert 0 <= col <= 2
-    assert idx == row * 3 + col
 
-    # Ensure the move is on an empty cell
+    # Ensure move was on an empty cell
     assert state_json["board"][idx] == " "
 
 
 def test_choose_move_changes_with_difficulty():
     """
     /ai/choose-move must accept difficulty and still return legal moves.
-    (We don't strictly enforce different indices, but both must be valid.)
     """
     state_json = {
         "board": [" ", " ", " ", " ", " ", " ", " ", " ", " "],
-        "current_player": "X",
-        "status": "RUNNING",
+        "current_player": "X"
     }
 
     resp_easy = client.post("/ai/choose-move?difficulty=easy", json=state_json)
