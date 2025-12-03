@@ -1,60 +1,54 @@
-from typing import Literal, Optional
+from typing import Optional
 
 from src.main.python.infrastructure.mcts.mcts_agent import choose_move as mcts_choose_move
 from src.main.python.domain.TicTacToeState import TicTacToeState
-from src.main.python.domain.enums.enums import GameStatus
-
-Difficulty = Literal["easy", "medium", "hard"]
+from src.main.python.domain.enums.enums import GameStatus, Difficulty
 
 
 class AIService:
     """
     AI Service responsible for:
     - Taking a TicTacToeState
-    - Selecting a move using MCTS (or a simple strategy for "easy")
+    - Selecting a move using MCTS or a simple strategy (easy)
     - Managing difficulty levels
-    - Providing (placeholder) winning probability estimates
-    - Stays open to swapping MCTS for ML-based models later.
+    - Computing winning probability (placeholder)
+    - Future replacement with ML models
     """
 
     def __init__(self):
-        # Placeholder current difficulty; could be adapted based on results
-        self.current_difficulty: Difficulty = "medium"
+        # Default difficulty (can be adjusted over time)
+        self.current_difficulty: Difficulty = Difficulty.MEDIUM
         self.human_win_rate: float = 0.5  # placeholder metric
 
     # ---------------- difficulty handling ----------------
 
     def _simulations_for_difficulty(self, difficulty: Difficulty) -> int:
         """
-        Map difficulty to MCTS computation budget.
-
-        easy   -> few iterations (we'll often use a very simple strategy instead)
-        medium -> more simulations
-        hard   -> many simulations
+        Map Difficulty enum to MCTS computation budget.
         """
-        if difficulty == "easy":
-            return 50
-        if difficulty == "medium":
-            return 200
-        if difficulty == "hard":
+        if difficulty == Difficulty.EASY:
+            return 100
+        if difficulty == Difficulty.MEDIUM:
             return 800
-        return 200
+        if difficulty == Difficulty.HARD:
+            return 2000
+        if difficulty == Difficulty.EXPERT:
+            return 8000
+        return 800
 
     def adjust_difficulty(self, human_recent_score: float) -> None:
         """
-        Placeholder auto-adjustment:
-        - if human is winning a lot (score > 0.7): make it harder
-        - if human is losing badly (score < 0.3): make it easier
-        - else: keep medium
+        Placeholder:
+        Auto-adjusts difficulty based on human performance.
         """
         self.human_win_rate = human_recent_score
 
         if human_recent_score > 0.7:
-            self.current_difficulty = "hard"
+            self.current_difficulty = Difficulty.HARD
         elif human_recent_score < 0.3:
-            self.current_difficulty = "easy"
+            self.current_difficulty = Difficulty.EASY
         else:
-            self.current_difficulty = "medium"
+            self.current_difficulty = Difficulty.MEDIUM
 
     # ---------------- core AI methods ----------------
 
@@ -65,13 +59,11 @@ class AIService:
     ) -> int:
         """
         Main API:
-        - Takes a TicTacToeState
-        - Chooses a move index (0–8) based on difficulty.
+        Chooses the best move based on the selected difficulty.
 
-        For "easy":
-          - Just pick the first legal move (weak but deterministic)
-        For "medium"/"hard":
-          - Use MCTS with different computation budgets
+        EASY   -> simple heuristic (first legal move)
+        MEDIUM -> MCTS with medium simulations
+        HARD   -> MCTS with high simulations
         """
         if state.is_terminal():
             raise ValueError("Cannot choose move for terminal state.")
@@ -82,24 +74,21 @@ class AIService:
         if not legal_moves:
             raise ValueError("No legal moves available.")
 
-        if diff == "easy":
-            # Very simple: first available move
+        if diff == Difficulty.EASY:
+            # Very simple deterministic move
             return legal_moves[0]
 
-        # For medium/hard: call MCTS with different budgets
+        # For MEDIUM / HARD: run MCTS
         sims = self._simulations_for_difficulty(diff)
         return mcts_choose_move(state, computation_budget=sims)
 
     def get_winning_probability(self, state: TicTacToeState) -> float:
         """
-        Placeholder: returns a static probability for now.
-        Later:
-          - this could call a value network or MCTS-based evaluation.
+        Placeholder for ML model integration.
         """
-        if state.status == GameStatus.X_WON or state.status == GameStatus.O_WON:
+        if state.status in (GameStatus.X_WON, GameStatus.O_WON):
             return 1.0
         if state.status == GameStatus.DRAW:
             return 0.5
 
-        # For non-terminal states, we just return a static neutral value.
         return 0.5
