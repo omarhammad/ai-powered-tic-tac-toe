@@ -17,15 +17,13 @@ class TicTacToeStateModel(BaseModel):
         tmp = TicTacToeState(
             board=self.board,
             current_player=Player(self.current_player),
-            status=GameStatus.IN_PROGRESS  # placeholder
         )
-        # Recompute correct status from board
-        correct_status = tmp._compute_status(tmp.board)
+        game_status = tmp._compute_status(tmp.board)
 
         return TicTacToeState(
             board=tmp.board,
             current_player=tmp.current_player,
-            status=correct_status
+            status=game_status
         )
 
 
