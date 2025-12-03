@@ -1,4 +1,4 @@
-# Tic-Tac-Toe AI Player Service  
+# Tic-Tac-Toe AI Player Service
 MCTS-based AI Player with support for multiple difficulty levels, FastAPI endpoints, and a clean architecture ready for ML integration.
 
 This service is built using a layered design:
@@ -12,7 +12,7 @@ The project is designed from the start to allow **ML integration later**, especi
 - policy imitation (best-move prediction)
 - winning probability estimation
 
-Below is the full prompt set that was used while building the AI Player.  
+Below is the full prompt set that was used while building the AI Player.
 
 ---
 
@@ -241,3 +241,145 @@ Then regenerate a revised version of any files that need changes.
 ```
 
 ---
+
+##  ML Dataset Generation with Self-Play
+
+
+### Prompt 1 — GameState model for ML logging
+
+**Title:** *Create a GameState class for ML-friendly self-play logs*
+
+```
+I want a small,  Python domain model that represents a single
+training example from Tic-Tac-Toe self-play.
+
+Please do the following:
+
+1. Create a GameState class
+
+2. The class should represent ONE move in the game with fields:
+
+   * game_session_id: str
+   * move_number: int
+   * board_state: List[Optional[str]]   # 9 cells: "X", "O", or " "
+   * current_player: Player enum        # X or O
+   * legal_moves: List[int]
+   * action_taken: int                  # index chosen from legal_moves
+   * best_move_strong: int              # index suggested by strongest MCTS
+   * outcome: GameStatus enum           # IN_PROGRESS, X_WON, O_WON, DRAW
+   * reward: float                      # -1, 0, or 1 on terminal move, 0.0 otherwise
+   * difficulty: Difficulty enum        # EASY, MEDIUM, HARD
+
+3. Add a to_dict() method that returns a JSON-serializable dict with
+   camelCase keys.
+
+Keep the class simple and focused on being a clean ML logging row.
+Generate the final Python code.
+
+```
+
+---
+
+## Prompt 2 — LoggingClient using RabbitMQ
+
+**Title:** *Implement a LoggingClient to publish GameState to RabbitMQ*
+
+```
+I want to send GameState logs to a separate service using RabbitMQ.
+
+Please do the following:
+
+1. Create a LoggingClient class.
+
+2. The constructor should accept:
+
+   * amqp_url: str
+   * exchange: str = "ml.logs"
+   * routing_key: str = "ml.tictactoe.state"
+
+   and then:
+
+   * create a pika.BlockingConnection from amqp_url
+   * create a channel
+   * declare a durable topic exchange with the given name
+
+3. Implement:
+
+   log_game_state(game_state_dict: dict) -> None
+
+   This method should:
+
+   * serialize the dict to JSON
+   * publish it to the configured exchange + routing_key
+   * use persistent messages (delivery_mode=2)
+   * catch any exception and print a simple
+     "[ML LOGGING ERROR] Failed to publish message: {e}"
+
+4. Keep this client decoupled from any web framework.
+   It should be usable directly from service classes.
+
+Generate the final LoggingClient implementation with all imports.
+```
+
+---
+
+## Prompt 3 — SelfPlayService + CLI for dataset generation
+
+**Title:** *Build SelfPlayService and a script to generate self-play datasets*
+
+```
+I want to generate a Tic-Tac-Toe self-play dataset and log every move
+as a GameState. The project already has:
+
+* TicTacToeState  (with legal_moves() and is_terminal())
+* AIService       (choose_move(state, difficulty))
+* GameState       (ML row with to_dict())
+* LoggingClient   (publishes to RabbitMQ)
+
+Please do the following:
+
+1. Implement SelfPlayService with:
+
+   __init__(ai_service, logging_client, exploration_noise=0.15)
+
+   generate_self_play_dataset(num_games):
+     - calls _run_single_game() num_games times
+
+   run_single_game():
+     - create game_session_id (UUID)
+     - state = TicTacToeState()
+     - randomly assign difficulties to X and O
+     - loop until state.is_terminal()
+       * get current_player, legal_moves
+       * chosen = ai_service.choose_move(state, current_diff)
+       * best_move_strong = ai_service.choose_move(state, Difficulty.EXPERT)
+       * with probability exploration_noise → replace chosen with random legal move
+       * create GameState BEFORE applying the move:
+           board_state = state.board.copy()
+           legal_moves = legal_moves
+           action_taken = chosen/noisy move
+           best_move_strong = expert move
+           outcome = IN_PROGRESS
+           reward = 0.0
+       * next_state = state.apply_move(action_taken)
+       * if next_state.is_terminal():
+           outcome = X_WON / O_WON / DRAW
+           reward = 1 / -1 / 0
+         log GameState using logging_client.log_game_state()
+       * move forward: state = next_state, move_number += 1
+
+2. Create a CLI script run_self_play.py:
+
+   * parse:
+       --games (default 1000)
+       --noise (default 0.15)
+       --amqp-url (default "amqp://user:password@localhost:5671/")
+   * create AIService, LoggingClient, SelfPlayService
+   * call generate_self_play_dataset(games)
+   * print simple progress messages
+
+Finally, generate full working code for:
+
+* SelfPlayService.py
+* run_self_play.py
+```
