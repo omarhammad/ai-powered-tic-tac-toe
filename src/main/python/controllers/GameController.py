@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 from fastapi import HTTPException, APIRouter, Request, Query
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
@@ -8,18 +6,15 @@ from src.main.python.controllers.dtos.CreateSessionRequest import CreateSessionR
 from src.main.python.controllers.dtos.MoveRequest import MoveRequest
 from src.main.python.controllers.dtos.MoveResponse import MoveResponse
 from src.main.python.domain.GameSession import GameSession
-from src.main.python.infrastructure.clients.MlLoggingClient import MlLoggingClient
+from src.main.python.infrastructure.clients.logging_client.MlLoggingClient import MlLoggingClient
 from src.main.python.infrastructure.messaging.GameBcPublisher import GameBcPublisher
 from src.main.python.infrastructure.repositories.SessionRepository import SessionRepository
 from src.main.python.services.GameService import GameService
-from src.main.python.services.MctsAiStrategy import MCTS_DIFFICULTIES, MctsAiStrategy
+from src.main.python.infrastructure.clients.ai_client.ExternalAIClient import ExternalAIClient
 
 router = APIRouter()
-
-# Correct paths based on your WORKDIR
 templates = Jinja2Templates(directory="src/main/resources/templates")
 
-# Instantiate dependencies
 repo = SessionRepository()
 
 ml_logger = MlLoggingClient(
@@ -32,24 +27,25 @@ game_bc_publisher = GameBcPublisher(
     routing_key="game.tictactoe.state.updated.v1"
 )
 
-ai_registry = {}
-for ai_type, simulations in MCTS_DIFFICULTIES.items():
-    ai_registry[ai_type] = MctsAiStrategy(simulations=simulations)
+ai_client = ExternalAIClient(
+    base_url="http://localhost:8091/ai",
+    timeout=10.0
+)
 
 service = GameService(
     session_repository=repo,
     ml_logger=ml_logger,
     game_bc_publisher=game_bc_publisher,
-    ai_strategies=ai_registry,
+    ai_client=ai_client,
+    default_ai_difficulty="medium",
 )
 
 
 # -------------------------------------------------------
-# 1. POST /session/create
+# CREATE SESSION
 # -------------------------------------------------------
 @router.post("/session/create")
 def create_session(req: CreateSessionRequest, request: Request):
-
     session: GameSession = service.create_session(
         session_id=req.sessionId,
         player_x_id=req.player_x_id,
@@ -58,27 +54,29 @@ def create_session(req: CreateSessionRequest, request: Request):
         player_o_name=req.player_o_name,
         player_x_is_ai=req.playerXIsAI,
         player_o_is_ai=req.playerOIsAI,
-        player_x_ai_type=req.playerXAiType,
-        player_o_ai_type=req.playerOAiType
     )
 
+
     base_url = str(request.base_url).rstrip("/")
+    urls = []
+
+    # Only humans get playable URLs
+    for player in (session.player_x, session.player_o):
+        if not player.is_ai:
+            urls.append(f"{base_url}/play/{session.session_id}?player_id={player.player_id}")
+
     return {
         "sessionId": session.session_id,
-        "gamePlayableUrls": [
-            f"{base_url}/play/{session.session_id}?player_id={session.player_x.player_id}",
-            f"{base_url}/play/{session.session_id}?player_id={session.player_o.player_id}"
-        ]
+        "gamePlayableUrls": urls
     }
 
 
 # -------------------------------------------------------
-# 2. GET /sessions/{sessionId}
+# GET SESSION STATE
 # -------------------------------------------------------
 @router.get("/sessions/{sessionId}")
 def get_session_state(sessionId: str):
     session: GameSession = service.get_session(sessionId)
-
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -102,7 +100,7 @@ def get_session_state(sessionId: str):
 
 
 # -------------------------------------------------------
-# 3. POST /move
+# APPLY MOVE (HUMAN OR AI)
 # -------------------------------------------------------
 @router.post("/move", response_model=MoveResponse)
 def apply_move(req: MoveRequest):
@@ -110,7 +108,7 @@ def apply_move(req: MoveRequest):
         session = service.apply_move(
             session_id=req.sessionId,
             player_id=req.playerId,
-            move_index=req.moveIndex
+            move_index=req.moveIndex,   # human: 0–8, AI: -1
         )
     except ValueError:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -126,7 +124,7 @@ def apply_move(req: MoveRequest):
 
 
 # -------------------------------------------------------
-# 4. GET /play/{sessionId}
+# SERVE UI
 # -------------------------------------------------------
 @router.get("/play/{session_id}", response_class=HTMLResponse)
 def serve_ui(request: Request, session_id: str, player_id: str = Query(...)):

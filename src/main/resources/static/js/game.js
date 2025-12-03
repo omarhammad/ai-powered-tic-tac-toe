@@ -1,139 +1,178 @@
 // ---------------------------------------------------------
-// This script:
-//  - Loads game state from /sessions/{SESSION_ID}
-//  - Determines if this browser controls X or O
-//  - Allows moves only when it's this player's turn
-//  - Polls every 1s to keep both players in sync
+// CLEAN & MINIMAL TIC-TAC-TOE FRONTEND LOGIC
+// - Polls backend every 1s
+// - Detects AI turns based on moveCount
+// - Fixes snapshot overwriting issue
 // ---------------------------------------------------------
 
 let state = null;
 let myRole = null;
-let moveCount = -1;
-let pollingInterval = null;
-let isFetchingSession = false;
+let lastProcessedMoveCount = -1;
+let isFetching = false;
 
-// -----------------------------------------------------------
-window.addEventListener("DOMContentLoaded", () => {
-    loadSession();
-    pollingInterval = setInterval(loadSession, 1000);
+// ---------------------------------------------------------
+// INITIAL LOAD
+// ---------------------------------------------------------
+window.addEventListener("DOMContentLoaded", async () => {
+    await loadSession();
+    setInterval(loadSession, 1000);
 });
 
-// -----------------------------------------------------------
+// ---------------------------------------------------------
+// LOAD SESSION
+// ---------------------------------------------------------
 async function loadSession() {
-    if (isFetchingSession) return;
-    isFetchingSession = true;
+    if (isFetching) return;
+    isFetching = true;
 
     try {
         const res = await fetch(`/sessions/${SESSION_ID}`);
         if (!res.ok) return;
 
         const snapshot = await res.json();
-        applyState(snapshot, { replace: true });
+        applyState(snapshot);
     } finally {
-        isFetchingSession = false;
+        isFetching = false;
     }
 }
 
-function applyState(snapshot, { replace = false } = {}) {
+// ---------------------------------------------------------
+// APPLY STATE + AI HANDLING
+// ---------------------------------------------------------
+function applyState(snapshot) {
     if (!snapshot || !snapshot.board) return;
 
-    const incomingMoveCount = countMoves(snapshot.board);
-    if (incomingMoveCount < moveCount) {
-        return; // Ignore stale poll results
-    }
+    const moveCount = countMoves(snapshot.board);
 
-    state = (replace || !state)
-        ? { ...snapshot }
-        : { ...state, ...snapshot };
+    // IMPORTANT FIX: merge instead of overwrite
+    state = { ...state, ...snapshot };
 
-    moveCount = incomingMoveCount;
     determineMyRole();
     renderUI();
 
-    if (state.isFinished && pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
+    // AI turn detection
+    const isAITurn =
+        (state.currentTurn === "X" && state.playerX?.isAI) ||
+        (state.currentTurn === "O" && state.playerO?.isAI);
+
+    if (isAITurn && moveCount === lastProcessedMoveCount) {
+        triggerAIMove();
     }
+
+    lastProcessedMoveCount = moveCount;
 }
 
 function countMoves(board) {
     return board.filter(v => v !== null).length;
 }
 
-// -----------------------------------------------------------
+// ---------------------------------------------------------
+// DETERMINE HUMAN ROLE
+// ---------------------------------------------------------
 function determineMyRole() {
-    if (PLAYER_ID === state.playerX.id) myRole = "X";
-    else if (PLAYER_ID === state.playerO.id) myRole = "O";
-    else myRole = null;
+    // snapshot may be partial, so guard this
+    if (!state?.playerX || !state?.playerO) {
+        myRole = null;
+        return;
+    }
+
+    const isX = PLAYER_ID === state.playerX.id;
+    const isO = PLAYER_ID === state.playerO.id;
+
+    if (!isX && !isO) {
+        myRole = null;
+        return;
+    }
+
+    if ((isX && state.playerX.isAI) || (isO && state.playerO.isAI)) {
+        myRole = null;
+        return;
+    }
+
+    myRole = isX ? "X" : "O";
 }
 
-// -----------------------------------------------------------
+// ---------------------------------------------------------
+// AI MOVE TRIGGER
+// ---------------------------------------------------------
+async function triggerAIMove() {
+    if (!state || state.isFinished) return;
+
+    const turn = state.currentTurn;
+    const aiPlayerId = turn === "X" ? state.playerX.id : state.playerO.id;
+
+    try {
+        const res = await fetch("/move", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                sessionId: SESSION_ID,
+                playerId: aiPlayerId,
+                moveIndex: -1
+            })
+        });
+
+        if (res.ok) {
+            const updated = await res.json();
+            applyState(updated);
+        }
+    } catch (err) {
+        console.error("[AI] Error:", err);
+    }
+}
+
+// ---------------------------------------------------------
+// RENDER UI
+// ---------------------------------------------------------
 function renderUI() {
     renderPlayers();
     renderInfoBanner();
     renderBoard();
 }
 
-// -----------------------------------------------------------
 function renderPlayers() {
     const sid = state.sessionId;
     document.getElementById("session-short").textContent =
         `${sid.slice(0, 6)}...${sid.slice(-3)}`;
 
-    document.getElementById("player-x-name").textContent = state.playerX.name;
-    document.getElementById("player-x-role").textContent = state.playerX.isAI ? "(AI)" : "(Human)";
+    document.getElementById("player-x-name").textContent = state.playerX?.name || "?";
+    document.getElementById("player-x-role").textContent =
+        state.playerX?.isAI ? "(AI)" : "(Human)";
 
-    document.getElementById("player-o-name").textContent = state.playerO.name;
-    document.getElementById("player-o-role").textContent = state.playerO.isAI ? "(AI)" : "(Human)";
+    document.getElementById("player-o-name").textContent = state.playerO?.name || "?";
+    document.getElementById("player-o-role").textContent =
+        state.playerO?.isAI ? "(AI)" : "(Human)";
 
     document.getElementById("you-badge").textContent =
         myRole ? `YOU ARE PLAYER ${myRole}` : "SPECTATOR";
 }
 
-// -----------------------------------------------------------
 function renderInfoBanner() {
     const banner = document.getElementById("info-banner");
 
-    // Spectator
     if (!myRole) {
         banner.textContent = "You are watching the game";
         banner.className = "info-banner info-spectator";
         return;
     }
 
-    // Finished game
     if (state.isFinished) {
-        if (state.winner) {
-            const winnerName =
-                state.winner === "X"
-                    ? state.playerX.name
-                    : state.playerO.name;
-
-            banner.textContent = `🏆 Winner: ${winnerName}`;
-            banner.className = "info-banner info-winner";
-        } else {
-            banner.textContent = "It's a Draw!";
-            banner.className = "info-banner info-draw";
-        }
+        banner.textContent = state.winner
+            ? `🏆 Winner: ${state.winner}`
+            : "It's a draw!";
+        banner.className = "info-banner info-winner";
         return;
     }
 
-    // Player's turn
     if (state.currentTurn === myRole) {
-        banner.textContent = "Your Turn";
+        banner.textContent = "Your turn";
         banner.className = "info-banner info-your-turn";
     } else {
-        const oppName =
-            state.currentTurn === "X"
-                ? state.playerX.name
-                : state.playerO.name;
-
-        banner.textContent = `Waiting for ${oppName}...`;
+        banner.textContent = "Waiting for opponent...";
         banner.className = "info-banner info-opponent-turn";
     }
 }
 
-// -----------------------------------------------------------
 function renderBoard() {
     const board = document.getElementById("board");
     board.innerHTML = "";
@@ -150,14 +189,15 @@ function renderBoard() {
         cell.appendChild(span);
 
         cell.addEventListener("click", () => tryMove(i));
-
         board.appendChild(cell);
     });
 
     board.classList.toggle("disabled", state.isFinished);
 }
 
-// -----------------------------------------------------------
+// ---------------------------------------------------------
+// HUMAN MOVE
+// ---------------------------------------------------------
 async function tryMove(index) {
     if (state.isFinished) return;
     if (!myRole) return;
@@ -175,7 +215,7 @@ async function tryMove(index) {
     });
 
     if (res.ok) {
-        const partialState = await res.json();
-        applyState(partialState);
+        const updated = await res.json();
+        applyState(updated);
     }
 }

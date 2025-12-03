@@ -10,5 +10,3 @@ class CreateSessionRequest(BaseModel):
     player_o_name: Optional[str] = "Saif"
     playerXIsAI: bool = False
     playerOIsAI: bool = False
-    playerXAiType: Optional[str] = None
-    playerOAiType: Optional[str] = None
