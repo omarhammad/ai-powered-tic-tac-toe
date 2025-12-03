@@ -6,7 +6,6 @@ from src.main.python.controllers.dtos.CreateSessionRequest import CreateSessionR
 from src.main.python.controllers.dtos.MoveRequest import MoveRequest
 from src.main.python.controllers.dtos.MoveResponse import MoveResponse
 from src.main.python.domain.GameSession import GameSession
-from src.main.python.infrastructure.clients.logging_client.MlLoggingClient import MlLoggingClient
 from src.main.python.infrastructure.messaging.GameBcPublisher import GameBcPublisher
 from src.main.python.infrastructure.repositories.SessionRepository import SessionRepository
 from src.main.python.services.GameService import GameService
@@ -16,10 +15,6 @@ router = APIRouter()
 templates = Jinja2Templates(directory="src/main/resources/templates")
 
 repo = SessionRepository()
-
-ml_logger = MlLoggingClient(
-    base_url="http://localhost:9000/api/logs"
-)
 
 game_bc_publisher = GameBcPublisher(
     amqp_url="amqp://user:password@localhost:5671/",
@@ -34,7 +29,6 @@ ai_client = ExternalAIClient(
 
 service = GameService(
     session_repository=repo,
-    ml_logger=ml_logger,
     game_bc_publisher=game_bc_publisher,
     ai_client=ai_client,
     default_ai_difficulty="medium",
@@ -46,21 +40,30 @@ service = GameService(
 # -------------------------------------------------------
 @router.post("/session/create")
 def create_session(req: CreateSessionRequest, request: Request):
-    session: GameSession = service.create_session(
-        session_id=req.sessionId,
-        player_x_id=req.player_x_id,
-        player_o_id=req.player_o_id,
-        player_x_name=req.player_x_name,
-        player_o_name=req.player_o_name,
-        player_x_is_ai=req.playerXIsAI,
-        player_o_is_ai=req.playerOIsAI,
-    )
 
+    if req.playerXIsAI and req.playerOIsAI:
+        raise HTTPException(
+            status_code=400,
+            detail="AI vs AI is not supported"
+        )
+
+    try:
+        session: GameSession = service.create_session(
+            session_id=req.sessionId,
+            player_x_id=req.player_x_id,
+            player_o_id=req.player_o_id,
+            player_x_name=req.player_x_name,
+            player_o_name=req.player_o_name,
+            player_x_is_ai=req.playerXIsAI,
+            player_o_is_ai=req.playerOIsAI,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     base_url = str(request.base_url).rstrip("/")
     urls = []
 
-    # Only humans get playable URLs
+    # Only HUMAN players get playable URLs
     for player in (session.player_x, session.player_o):
         if not player.is_ai:
             urls.append(f"{base_url}/play/{session.session_id}?player_id={player.player_id}")
@@ -100,7 +103,7 @@ def get_session_state(sessionId: str):
 
 
 # -------------------------------------------------------
-# APPLY MOVE (HUMAN OR AI)
+# APPLY MOVE
 # -------------------------------------------------------
 @router.post("/move", response_model=MoveResponse)
 def apply_move(req: MoveRequest):
@@ -108,7 +111,7 @@ def apply_move(req: MoveRequest):
         session = service.apply_move(
             session_id=req.sessionId,
             player_id=req.playerId,
-            move_index=req.moveIndex,   # human: 0–8, AI: -1
+            move_index=req.moveIndex,
         )
     except ValueError:
         raise HTTPException(status_code=404, detail="Session not found")

@@ -4,10 +4,8 @@ from src.main.python.domain.GameSession import GameSession
 from src.main.python.domain.Mark import Mark
 from src.main.python.domain.Player import Player
 from src.main.python.events.GameEvent import GameEvent
-from src.main.python.infrastructure.clients.logging_client.MlLoggingClient import MlLoggingClient
 from src.main.python.infrastructure.messaging.GameBcPublisher import GameBcPublisher
 from src.main.python.infrastructure.repositories.SessionRepository import SessionRepository
-from src.main.python.domain.GameState import GameState
 from src.main.python.infrastructure.clients.ai_client.ExternalAIClient import ExternalAIClient
 
 
@@ -17,20 +15,18 @@ class GameService:
     - Handles human moves
     - Handles AI moves through moveIndex = -1
     - Auto-chains AI turns
-    - Logs game states to ML service
-    - Publishes events only when a human is involved
+    - Publishes GameEvent to GameBC (platform)
+    - AI vs AI sessions are not allowed
     """
 
     def __init__(
             self,
             session_repository: SessionRepository,
-            ml_logger: MlLoggingClient,
             game_bc_publisher: GameBcPublisher,
             ai_client: ExternalAIClient,
             default_ai_difficulty: str = "medium",
     ):
         self.repo = session_repository
-        self.ml_logger = ml_logger
         self.game_bc_publisher = game_bc_publisher
         self.ai_client = ai_client
         self.default_ai_difficulty = default_ai_difficulty
@@ -51,6 +47,10 @@ class GameService:
             player_x_is_ai: bool,
             player_o_is_ai: bool,
     ):
+
+        # BLOCK AI vs AI sessions
+        if player_x_is_ai and player_o_is_ai:
+            raise Exception("AI vs AI sessions are not allowed. Use AI subsystem for self-play.")
 
         player_x = Player(player_x_id, player_x_name, Mark.X, player_x_is_ai)
         player_o = Player(player_o_id, player_o_name, Mark.O, player_o_is_ai)
@@ -76,11 +76,6 @@ class GameService:
     # MOVE HANDLING (HUMAN + AI)
     # -------------------------------------------------------
     def apply_move(self, session_id: str, player_id: str, move_index: int):
-        """
-        Supports:
-        - Human moves (moveIndex = 0–8)
-        - AI moves    (moveIndex = -1)
-        """
         session: GameSession = self.repo.find(session_id)
         if not session:
             raise ValueError("Session not found")
@@ -90,9 +85,7 @@ class GameService:
 
         current = session.current_player
 
-        # -------------------------------------------------
         # HUMAN TURN
-        # -------------------------------------------------
         if not current.is_ai:
             if player_id != current.player_id:
                 raise Exception("It's not your turn")
@@ -102,9 +95,7 @@ class GameService:
 
             return self._play_turns(session, human_move_index=move_index)
 
-        # -------------------------------------------------
-        # AI TURN (moveIndex MUST be -1)
-        # -------------------------------------------------
+        # AI TURN
         if current.is_ai:
             if move_index != -1:
                 raise Exception("AI moveIndex must be -1")
@@ -115,12 +106,10 @@ class GameService:
     # TURN SEQUENCING
     # -------------------------------------------------------
     def _play_turns(self, session: GameSession, human_move_index=None):
-        """
-        Executes the human move OR the first AI move,
-        then continues triggering AI moves until:
-        - game ends, or
-        - it's a human's turn again
-        """
+
+        # BLOCK AI vs AI during gameplay (failsafe)
+        if session.player_x.is_ai and session.player_o.is_ai:
+            raise Exception("AI vs AI gameplay is not allowed in this game engine.")
 
         if session.is_finished:
             return session
@@ -138,9 +127,9 @@ class GameService:
         if not session.make_move(move):
             raise Exception("Invalid move")
 
-        self._log_after_move(session, mover, move)
+        self._publish_game_event(session, mover)
 
-        # Chain additional AI moves
+        # Auto-chain AI moves until a human is up
         while not session.is_finished and session.current_player.is_ai:
             mover = session.current_player
             ai_move = self._choose_ai_move(session, mover)
@@ -148,7 +137,7 @@ class GameService:
             if not session.make_move(ai_move):
                 raise Exception(f"AI selected illegal move: {ai_move}")
 
-            self._log_after_move(session, mover, ai_move)
+            self._publish_game_event(session, mover)
 
         return session
 
@@ -163,18 +152,14 @@ class GameService:
         return self.ai_client.choose_move(session, difficulty=difficulty)
 
     # -------------------------------------------------------
-    # LOGGING
+    # PLATFORM LOGGING ONLY
     # -------------------------------------------------------
-    def _log_after_move(self, session: GameSession, mover: Player, move_index: int):
-        """
-        Logs ML state for every move
-        Publishes GameEvent only when humans are present
-        """
+    def _publish_game_event(self, session: GameSession, mover: Player):
 
+        # Determine game status
         if session.is_finished:
             if session.winner is None:
                 game_status = "DRAW"
-                reward = 0
                 winner_id = None
             else:
                 winner_mark = session.winner.value
@@ -184,30 +169,11 @@ class GameService:
                 )
                 winner_id = winner_player.player_id
                 game_status = f"{winner_mark}_WON"
-                reward = 1 if mover.mark.value == winner_mark else -1
         else:
             game_status = "IN_PROGRESS"
-            reward = None
             winner_id = None
 
-        # Always log to ML service
-        ml_state = GameState(
-            sessionId=session.session_id,
-            boardState=session.board.get_state(),
-            currentPlayer=mover.mark.value,
-            legalMoves=session.board.get_legal_moves(),
-            actionTaken=move_index,
-            moveNumber=session.move_count,
-            gameStatus=game_status,
-            reward=reward,
-        )
-        self.ml_logger.log_game_state(ml_state)
-
-        # Skip GameBC when AI vs AI
-        if session.player_x.is_ai and session.player_o.is_ai:
-            return
-
-        # Publish GameEvent
+        # Build GameEvent
         game_event = GameEvent(
             sessionId=session.session_id,
             boardState=session.board.get_state(),
@@ -216,4 +182,6 @@ class GameService:
             gameStatus=game_status,
             winner=winner_id,
         )
+
+        # Publish to GameBC
         self.game_bc_publisher.publish_state(game_event)
