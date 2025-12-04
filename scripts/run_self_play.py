@@ -8,6 +8,7 @@ sys.path.append(str(ROOT / "src" / "main" / "python"))
 from services.SelfPlayService import SelfPlayService
 from services.AiService import AIService
 from infrastructure.logging.LoggingClient import LoggingClient
+from infrastructure.messaging.SelfPlayEventPublisher import SelfPlayEventPublisher
 
 
 def parse_args():
@@ -18,7 +19,7 @@ def parse_args():
     parser.add_argument(
         "--games",
         type=int,
-        default=1,
+        default=10,
         help="Number of self-play games to generate."
     )
 
@@ -33,7 +34,7 @@ def parse_args():
         "--amqp-url",
         type=str,
         default="amqp://user:password@localhost:5671/",
-        help="RabbitMQ connection URL for ML logging."
+        help="RabbitMQ connection URL."
     )
 
     return parser.parse_args()
@@ -64,8 +65,15 @@ def main():
 
     print("\n--------------------------------")
     print(" Self-play dataset generation finished.")
-    print(" Logs sent to ML Logging Service via RabbitMQ.")
+    print(" Publishing completion event...")
     print("--------------------------------\n")
+
+    # Publish completion event
+    event_publisher = SelfPlayEventPublisher(amqp_url=args.amqp_url)
+    event_publisher.publish_completion_event(total_games=args.games)
+    event_publisher.close()
+
+    print("[DONE] Self-play run completed event sent.\n")
 
 
 if __name__ == "__main__":
