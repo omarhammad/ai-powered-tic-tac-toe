@@ -2,6 +2,7 @@ from fastapi import HTTPException, APIRouter, Request, Query
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 
+from src.main.python.config.config import settings
 from src.main.python.controllers.dtos.CreateSessionRequest import CreateSessionRequest
 from src.main.python.controllers.dtos.MoveRequest import MoveRequest
 from src.main.python.controllers.dtos.MoveResponse import MoveResponse
@@ -17,14 +18,14 @@ templates = Jinja2Templates(directory="src/main/resources/templates")
 repo = SessionRepository()
 
 game_bc_publisher = GameBcPublisher(
-    amqp_url="amqp://user:password@localhost:5671/",
-    exchange="game.events",
-    routing_key="game.tictactoe.state.updated.v1"
+    amqp_url=settings.AMQP_URL,
+    exchange=settings.GAME_EVENTS_EXCHANGE,
+    routing_key=settings.GAME_EVENTS_ROUTING_KEY,
 )
 
 ai_client = ExternalAIClient(
-    base_url="http://localhost:8091/ai",
-    timeout=10.0
+    base_url=settings.AI_BASE_URL,
+    timeout=settings.AI_TIMEOUT
 )
 
 service = GameService(
