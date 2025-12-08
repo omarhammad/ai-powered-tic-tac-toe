@@ -18,33 +18,20 @@ compile-job:
     - if: '$CI_COMMIT_BRANCH'
 
 
-
 test-job:
   stage: test
-  image: python:3.11-slim
+  image: python:3.11-bookworm
   needs: ["compile-job"]
   script:
-    # Remove preinstalled broken httpx/starlette versions
-    - pip uninstall -y httpx httpcore h11 starlette fastapi || true
-    - rm -rf /usr/local/lib/python3.11/site-packages/httpx*
-    - rm -rf /usr/local/lib/python3.11/site-packages/httpcore*
-    - rm -rf /usr/local/lib/python3.11/site-packages/h11*
-    - rm -rf /usr/local/lib/python3.11/site-packages/starlette*
-    - rm -rf /usr/local/lib/python3.11/site-packages/fastapi*
-
     - pip install --no-cache-dir -r requirements.txt
-
     - pytest --maxfail=1 --disable-warnings -q
-
   artifacts:
     when: always
     reports:
       junit: pytest.xml
-
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH'
-
 
 
 build-image-job:
