@@ -1,22 +1,20 @@
-import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import MagicMock
 
-from fastapi import Depends
-
-from src.main.python.controllers.GameController import router, get_service_override
-from src.main.python.services.GameService import GameService
-from src.main.python.domain.GameSession import GameSession
-from src.main.python.domain.Player import Player
-from src.main.python.domain.Mark import Mark
-
-
+import pytest
 # --- Create a fake FastAPI app for testing only ---
 from fastapi import FastAPI
+from httpx import ASGITransport, Client
+
+from src.main.python.controllers.GameController import router, get_service_override
+from src.main.python.domain.GameSession import GameSession
+from src.main.python.domain.Mark import Mark
+from src.main.python.domain.Player import Player
+from src.main.python.services.GameService import GameService
 
 app = FastAPI()
 app.include_router(router)
-client = TestClient(app)
+transport = ASGITransport(app=app)
+client = Client(transport=transport, base_url="http://testserver")
 
 
 # Override dependency for ALL endpoints
