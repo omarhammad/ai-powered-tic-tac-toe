@@ -1,4 +1,4 @@
-from fastapi import HTTPException, APIRouter, Request, Query
+from fastapi import HTTPException, APIRouter, Request, Query, Depends
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 
@@ -28,19 +28,20 @@ ai_client = ExternalAIClient(
     timeout=settings.AI_TIMEOUT
 )
 
-service = GameService(
-    session_repository=repo,
-    game_bc_publisher=game_bc_publisher,
-    ai_client=ai_client,
-    default_ai_difficulty="medium",
-)
 
+def get_service_override():
+    return GameService(
+        session_repository=repo,
+        game_bc_publisher=game_bc_publisher,
+        ai_client=ai_client,
+        default_ai_difficulty="medium",
+    )
 
 # -------------------------------------------------------
 # CREATE SESSION
 # -------------------------------------------------------
 @router.post("/session/create")
-def create_session(req: CreateSessionRequest, request: Request):
+def create_session(req: CreateSessionRequest, request: Request, svc: GameService = Depends(get_service_override)):
 
     if req.playerXIsAI and req.playerOIsAI:
         raise HTTPException(
@@ -49,7 +50,7 @@ def create_session(req: CreateSessionRequest, request: Request):
         )
 
     try:
-        session: GameSession = service.create_session(
+        session: GameSession = svc.create_session(
             session_id=req.sessionId,
             player_x_id=req.player_x_id,
             player_o_id=req.player_o_id,
@@ -79,8 +80,8 @@ def create_session(req: CreateSessionRequest, request: Request):
 # GET SESSION STATE
 # -------------------------------------------------------
 @router.get("/sessions/{sessionId}")
-def get_session_state(sessionId: str):
-    session: GameSession = service.get_session(sessionId)
+def get_session_state(sessionId: str, svc: GameService = Depends(get_service_override)):
+    session: GameSession = svc.get_session(sessionId)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -107,9 +108,9 @@ def get_session_state(sessionId: str):
 # APPLY MOVE
 # -------------------------------------------------------
 @router.post("/move", response_model=MoveResponse)
-def apply_move(req: MoveRequest):
+def apply_move(req: MoveRequest, svc: GameService = Depends(get_service_override)):
     try:
-        session = service.apply_move(
+        session = svc.apply_move(
             session_id=req.sessionId,
             player_id=req.playerId,
             move_index=req.moveIndex,
@@ -131,8 +132,8 @@ def apply_move(req: MoveRequest):
 # SERVE UI
 # -------------------------------------------------------
 @router.get("/play/{session_id}", response_class=HTMLResponse)
-def serve_ui(request: Request, session_id: str, player_id: str = Query(...)):
-    session: GameSession = service.get_session(session_id)
+def serve_ui(request: Request, session_id: str, player_id: str = Query(...),svc: GameService = Depends(get_service_override)):
+    session: GameSession = svc.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -144,3 +145,6 @@ def serve_ui(request: Request, session_id: str, player_id: str = Query(...)):
             "playerId": player_id
         }
     )
+
+
+__all__ = ["router"]
