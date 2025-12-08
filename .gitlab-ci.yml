@@ -20,7 +20,7 @@ compile-job:
 
 test-job:
   stage: test
-  image: python:3.11-bookworm
+  image: python:3.11-alpine
   needs: ["compile-job"]
   script:
     - pip install --no-cache-dir -r requirements.txt
