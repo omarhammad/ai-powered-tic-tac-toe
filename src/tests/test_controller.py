@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 # --- Create a fake FastAPI app for testing only ---
 from fastapi import FastAPI
-from httpx import ASGITransport, Client
+from fastapi.testclient import TestClient
 
 from src.main.python.controllers.GameController import router, get_service_override
 from src.main.python.domain.GameSession import GameSession
@@ -13,8 +13,7 @@ from src.main.python.services.GameService import GameService
 
 app = FastAPI()
 app.include_router(router)
-transport = ASGITransport(app=app)
-client = Client(transport=transport, base_url="http://testserver")
+client = TestClient(app)
 
 
 
