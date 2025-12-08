@@ -20,10 +20,13 @@ compile-job:
 
 test-job:
   stage: test
-  image: python:3.11-alpine
+  image: python:3.11-slim
   needs: ["compile-job"]
-  script:
+  before_script:
+    - apt-get update && apt-get install -y build-essential
+    - pip install --upgrade pip
     - pip install --no-cache-dir -r requirements.txt
+  script:
     - pytest --maxfail=1 --disable-warnings -q
   artifacts:
     when: always
@@ -32,6 +35,7 @@ test-job:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH'
+
 
 
 build-image-job:
