@@ -13,8 +13,9 @@ from src.main.python.services.GameService import GameService
 
 app = FastAPI()
 app.include_router(router)
-transport = ASGITransport(app=app, raise_app_exceptions=True)
+transport = ASGITransport(app=app)
 client = Client(transport=transport, base_url="http://testserver")
+
 
 
 # Override dependency for ALL endpoints
