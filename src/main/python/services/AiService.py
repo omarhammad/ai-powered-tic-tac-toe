@@ -10,7 +10,6 @@ class AIService:
     AI Service responsible for:
     - Taking a TicTacToeState
     - Selecting a move using MCTS or a simple strategy (easy)
-    - Managing difficulty levels
     - Computing winning probability (placeholder)
     - Future replacement with ML models
     """
@@ -35,20 +34,6 @@ class AIService:
         if difficulty == Difficulty.EXPERT:
             return 8000
         return 800
-
-    def adjust_difficulty(self, human_recent_score: float) -> None:
-        """
-        Placeholder:
-        Auto-adjusts difficulty based on human performance.
-        """
-        self.human_win_rate = human_recent_score
-
-        if human_recent_score > 0.7:
-            self.current_difficulty = Difficulty.HARD
-        elif human_recent_score < 0.3:
-            self.current_difficulty = Difficulty.EASY
-        else:
-            self.current_difficulty = Difficulty.MEDIUM
 
     # ---------------- core AI methods ----------------
 
