@@ -37,12 +37,12 @@ def get_service_override():
         default_ai_difficulty="medium",
     )
 
+
 # -------------------------------------------------------
 # CREATE SESSION
 # -------------------------------------------------------
 @router.post("/session/create")
 def create_session(req: CreateSessionRequest, request: Request, svc: GameService = Depends(get_service_override)):
-
     if req.playerXIsAI and req.playerOIsAI:
         raise HTTPException(
             status_code=400,
@@ -132,10 +132,14 @@ def apply_move(req: MoveRequest, svc: GameService = Depends(get_service_override
 # SERVE UI
 # -------------------------------------------------------
 @router.get("/play/{session_id}", response_class=HTMLResponse)
-def serve_ui(request: Request, session_id: str, player_id: str = Query(...),svc: GameService = Depends(get_service_override)):
+def serve_ui(request: Request, session_id: str, player_id: str = Query(...),
+             svc: GameService = Depends(get_service_override)):
     session: GameSession = svc.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    if not (session.player_x.player_id == player_id or session.player_o.player_id == player_id):
+        raise HTTPException(status_code=404, detail="Player not found, maybe wrong session")
 
     return templates.TemplateResponse(
         "play.html",
