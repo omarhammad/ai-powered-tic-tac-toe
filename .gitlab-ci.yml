@@ -46,14 +46,14 @@ build-image-job:
     - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
   script:
     - |
-      pack build docker.io/$DOCKERHUB_USERNAME/tictactoe_game:$CI_COMMIT_SHA \
+      pack build docker.io/$DOCKERHUB_USERNAME/ai_system:$CI_COMMIT_SHA \
         --builder paketobuildpacks/builder:base \
         --env "BP_CPYTHON_VERSION=3.11.x" \
         --path . \
         --publish
-    - docker pull docker.io/$DOCKERHUB_USERNAME/tictactoe_game:$CI_COMMIT_SHA
-    - docker tag docker.io/$DOCKERHUB_USERNAME/tictactoe_game:$CI_COMMIT_SHA docker.io/$DOCKERHUB_USERNAME/tictactoe_game:latest
-    - docker push docker.io/$DOCKERHUB_USERNAME/tictactoe_game:latest
+    - docker pull docker.io/$DOCKERHUB_USERNAME/ai_system:$CI_COMMIT_SHA
+    - docker tag docker.io/$DOCKERHUB_USERNAME/ai_system:$CI_COMMIT_SHA docker.io/$DOCKERHUB_USERNAME/ai_system:latest
+    - docker push docker.io/$DOCKERHUB_USERNAME/ai_system:latest
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
 
