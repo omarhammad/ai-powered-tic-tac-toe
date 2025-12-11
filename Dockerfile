@@ -11,6 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
+ENV PYTHONPATH="/app/src/main/python"
 
 EXPOSE 8080
 
