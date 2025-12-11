@@ -1,0 +1,11 @@
+.git
+.gitlab-ci.yml
+venv/
+__pycache__/
+.idea/
+*.pyc
+*.pyo
+*.pyd
+.env
+build/
+dist/
