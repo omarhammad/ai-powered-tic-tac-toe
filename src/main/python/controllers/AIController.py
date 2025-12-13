@@ -13,7 +13,13 @@ ai_service = AIService()
 
 
 @router.post("/choose-move", response_model=Union[MoveResponse, ErrorResponse])
-def choose_move(state: TicTacToeStateModel, difficulty: Literal["easy", "medium", "hard"] = "medium"):
+def choose_move(state: TicTacToeStateModel, difficulty: str = "medium"):
+    difficulty = difficulty.lower()
+    if difficulty not in ("easy", "medium", "hard"):
+        return ErrorResponse(
+            error=f"Invalid difficulty: {difficulty}",
+            status="BAD_REQUEST"
+        )
     domain_state = state.to_domain()
 
     if domain_state.is_terminal():
@@ -23,7 +29,7 @@ def choose_move(state: TicTacToeStateModel, difficulty: Literal["easy", "medium"
         )
 
     try:
-        move_index = ai_service.choose_move(domain_state, difficulty=Difficulty(difficulty))
+        move_index = ai_service.choose_move(domain_state, difficulty=Difficulty(difficulty.lower()))
     except ValueError:
         return ErrorResponse(
             error="Game is already finished. No moves available.",
