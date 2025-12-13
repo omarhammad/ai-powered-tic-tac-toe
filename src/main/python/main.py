@@ -3,7 +3,7 @@ from starlette.staticfiles import StaticFiles
 
 from src.main.python.controllers.GameController import router as game_router
 
-# uvicorn src.main.python.main:app --reload --port 8080
+# uvicorn src.main.python.main:app --reload --port 8090
 app = FastAPI()
 
 app.mount(
