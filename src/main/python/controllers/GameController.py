@@ -42,8 +42,12 @@ def get_service_override():
 # CREATE SESSION
 # -------------------------------------------------------
 @router.post("/session/create")
-def create_session(req: CreateSessionRequest, request: Request, svc: GameService = Depends(get_service_override)):
-    if req.playerXIsAI and req.playerOIsAI:
+def create_session(
+        req: CreateSessionRequest,
+        request: Request,
+        svc: GameService = Depends(get_service_override)
+):
+    if req.player_x_is_ai and req.player_o_is_ai:
         raise HTTPException(
             status_code=400,
             detail="AI vs AI is not supported"
@@ -56,8 +60,10 @@ def create_session(req: CreateSessionRequest, request: Request, svc: GameService
             player_o_id=req.player_o_id,
             player_x_name=req.player_x_name,
             player_o_name=req.player_o_name,
-            player_x_is_ai=req.playerXIsAI,
-            player_o_is_ai=req.playerOIsAI,
+            player_x_is_ai=req.player_x_is_ai,
+            player_o_is_ai=req.player_o_is_ai,
+            player_x_ai_difficulty=req.player_x_ai_difficulty,
+            player_o_ai_difficulty=req.player_o_ai_difficulty,
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -65,10 +71,11 @@ def create_session(req: CreateSessionRequest, request: Request, svc: GameService
     base_url = str(request.base_url).rstrip("/")
     urls = []
 
-    # Only HUMAN players get playable URLs
     for player in (session.player_x, session.player_o):
         if not player.is_ai:
-            urls.append(f"{base_url}/play/{session.session_id}?player_id={player.player_id}")
+            urls.append(
+                f"{base_url}/play/{session.session_id}?player_id={player.player_id}"
+            )
 
     return {
         "sessionId": session.session_id,

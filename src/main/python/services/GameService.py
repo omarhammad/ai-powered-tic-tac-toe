@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Optional
 
 from src.main.python.domain.GameSession import GameSession
 from src.main.python.domain.Mark import Mark
@@ -31,9 +31,6 @@ class GameService:
         self.ai_client = ai_client
         self.default_ai_difficulty = default_ai_difficulty
 
-        # Store difficulty per AI player
-        self.player_difficulties: Dict[str, str] = {}
-
     # -------------------------------------------------------
     # SESSION CREATION
     # -------------------------------------------------------
@@ -46,23 +43,31 @@ class GameService:
             player_o_name: str,
             player_x_is_ai: bool,
             player_o_is_ai: bool,
+            player_x_ai_difficulty: Optional[str] = None,
+            player_o_ai_difficulty: Optional[str] = None,
     ):
 
         # BLOCK AI vs AI sessions
         if player_x_is_ai and player_o_is_ai:
             raise Exception("AI vs AI sessions are not allowed. Use AI subsystem for self-play.")
 
-        player_x = Player(player_x_id, player_x_name, Mark.X, player_x_is_ai)
-        player_o = Player(player_o_id, player_o_name, Mark.O, player_o_is_ai)
+        player_x = Player(
+            player_id=player_x_id,
+            player_name=player_x_name,
+            mark=Mark.X,
+            is_ai=player_x_is_ai,
+            difficulty=player_x_ai_difficulty
+        )
+
+        player_o = Player(
+            player_id=player_o_id,
+            player_name=player_o_name,
+            mark=Mark.O,
+            is_ai=player_o_is_ai,
+            difficulty=player_o_ai_difficulty
+        )
 
         session = GameSession(session_id, player_x, player_o)
-
-        # init AI difficulties
-        if player_x_is_ai:
-            self.player_difficulties[player_x_id] = self.default_ai_difficulty
-        if player_o_is_ai:
-            self.player_difficulties[player_o_id] = self.default_ai_difficulty
-
         self.repo.save(session_id, session)
         return session
 
@@ -107,14 +112,9 @@ class GameService:
     # -------------------------------------------------------
     def _play_turns(self, session: GameSession, human_move_index=None):
 
-        # BLOCK AI vs AI during gameplay (failsafe)
-        if session.player_x.is_ai and session.player_o.is_ai:
-            raise Exception("AI vs AI gameplay is not allowed in this game engine.")
-
         if session.is_finished:
             return session
 
-        # First move this turn
         mover = session.current_player
         if mover.is_ai:
             move = self._choose_ai_move(session, mover)
@@ -129,26 +129,13 @@ class GameService:
 
         self._publish_game_event(session, mover)
 
-        # Auto-chain AI moves until a human is up
-        while not session.is_finished and session.current_player.is_ai:
-            mover = session.current_player
-            ai_move = self._choose_ai_move(session, mover)
-
-            if not session.make_move(ai_move):
-                raise Exception(f"AI selected illegal move: {ai_move}")
-
-            self._publish_game_event(session, mover)
-
         return session
 
     # -------------------------------------------------------
     # AI SELECTION
     # -------------------------------------------------------
-    def _get_difficulty(self, player: Player) -> str:
-        return self.player_difficulties.get(player.player_id, self.default_ai_difficulty)
-
     def _choose_ai_move(self, session: GameSession, player: Player) -> int:
-        difficulty = self._get_difficulty(player)
+        difficulty = player.difficulty or self.default_ai_difficulty
         return self.ai_client.choose_move(session, difficulty=difficulty)
 
     # -------------------------------------------------------
@@ -156,7 +143,6 @@ class GameService:
     # -------------------------------------------------------
     def _publish_game_event(self, session: GameSession, mover: Player):
 
-        # Determine game status
         if session.is_finished:
             if session.winner is None:
                 game_status = "DRAW"
@@ -173,7 +159,6 @@ class GameService:
             game_status = "IN_PROGRESS"
             winner_id = None
 
-        # Build GameEvent
         game_event = GameEvent(
             sessionId=session.session_id,
             boardState=session.board.get_state(),
@@ -183,5 +168,4 @@ class GameService:
             winner=winner_id,
         )
 
-        # Publish to GameBC
         self.game_bc_publisher.publish_state(game_event)
