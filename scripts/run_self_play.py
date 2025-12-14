@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument(
         "--noise",
         type=float,
-        default=float(os.getenv("SELFPLAY_NOISE", 0.15)),
+        default=float(os.getenv("SELFPLAY_NOISE", 0.1)),
         help="Exploration noise ratio (0.0 - 1.0). Default: 0.15"
     )
 
@@ -52,7 +52,6 @@ def main():
     print("\nStarting...\n")
 
     # Initialize services
-    event_publisher = SelfPlayEventPublisher(amqp_url=args.amqp_url)
     ai_service = AIService()
     logger = LoggingClient(amqp_url=args.amqp_url)
     self_play_service = SelfPlayService(
@@ -70,6 +69,7 @@ def main():
     print("--------------------------------\n")
 
     # Publish completion event
+    event_publisher = SelfPlayEventPublisher(amqp_url=args.amqp_url)
     event_publisher.publish_completion_event(total_games=args.games)
     event_publisher.close()
 
