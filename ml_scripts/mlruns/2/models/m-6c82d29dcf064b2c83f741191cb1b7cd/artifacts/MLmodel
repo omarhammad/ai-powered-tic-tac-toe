@@ -1,0 +1,22 @@
+artifact_path: /Users/aleksandar.stojanovic/Downloads/ai_system/ml_scripts/mlruns/2/models/m-6c82d29dcf064b2c83f741191cb1b7cd/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.12.6
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.7.2
+mlflow_version: 3.7.0
+model_id: m-6c82d29dcf064b2c83f741191cb1b7cd
+model_size_bytes: 2039710
+model_uuid: m-6c82d29dcf064b2c83f741191cb1b7cd
+prompts: null
+run_id: 1c6b832b6ca6440ea28cc8f54802d3d9
+utc_time_created: '2025-12-08 12:51:16.294852'
