@@ -1,0 +1,57 @@
+stages:
+  - compile
+  - test
+  - build
+
+
+compile-job:
+  stage: compile
+  image: python:3.11-slim
+  before_script:
+    - apt-get update && apt-get install -y  git
+  script:
+    - pip install -r requirements.txt
+    - python -m py_compile $(git ls-files '*.py')
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+test-job:
+  stage: test
+  image: python:3.11-slim
+  needs: ['compile-job']
+  script:
+    - pip install --no-cache-dir -r requirements.txt
+    - pytest --maxfail=1 --disable-warnings --junitxml=pytest.xml -q
+  artifacts:
+    when: always
+    reports:
+      junit: pytest.xml
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+build-image-job:
+  stage: build
+  image: docker:27
+  needs: ['test-job']
+  services:
+    - name: docker:27-dind
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+  script:
+    - docker build -t docker.io/$DOCKERHUB_USERNAME/ai_system:$CI_COMMIT_SHA .
+    - docker push docker.io/$DOCKERHUB_USERNAME/ai_system:$CI_COMMIT_SHA
+    - docker tag docker.io/$DOCKERHUB_USERNAME/ai_system:$CI_COMMIT_SHA docker.io/$DOCKERHUB_USERNAME/ai_system:latest
+    - docker push docker.io/$DOCKERHUB_USERNAME/ai_system:latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+
+include:
+  template: Jobs/Dependency-Scanning.gitlab-ci.yml
+
+

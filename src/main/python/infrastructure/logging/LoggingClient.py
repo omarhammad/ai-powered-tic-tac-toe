@@ -4,7 +4,7 @@ import pika
 
 class LoggingClient:
     """
-    Publishes game state logs to RabbitMQ instead of HTTP.
+    Publishes game state logs to RabbitMQ
 
     Exchange: ml.logs
     Routing Key: ml.tictactoe.state

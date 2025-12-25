@@ -18,7 +18,7 @@ class SelfPlayService:
             self,
             ai_service: AIService,
             logging_client: LoggingClient,
-            exploration_noise: float = 0.15,
+            exploration_noise: float = 0.1,
     ):
         self.ai_service = ai_service
         self.logger = logging_client
@@ -66,7 +66,7 @@ class SelfPlayService:
             )
 
             # 3. Exploration noise
-            noisy_move = self._apply_exploration_noise(state, chosen_move)
+            noisy_move = self._apply_exploration_noise(state, chosen_move,move_number)
 
             # ---- Build GameState BEFORE applying move ----
             gs = GameState(
@@ -122,8 +122,15 @@ class SelfPlayService:
         diffs = [Difficulty.EASY, Difficulty.MEDIUM, Difficulty.HARD]
         return random.choice(diffs), random.choice(diffs)
 
-    def _apply_exploration_noise(self, state: TicTacToeState, move: int) -> int:
-        if random.random() < self.noise:
+    def _apply_exploration_noise(self, state, move, move_number):
+        if move_number < 2:
+            noise = self.noise * 0.2
+        elif move_number < 5:
+            noise = self.noise * 0.5
+        else:
+            noise = self.noise
+
+        if random.random() < noise:
             return random.choice(state.legal_moves())
         return move
 
