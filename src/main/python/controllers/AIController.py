@@ -39,8 +39,12 @@ def choose_move(state: TicTacToeStateModel, difficulty: str = "medium"):
     return MoveResponse(index=move_index)
 
 
-@router.get("/winning-proba", response_model=WinningProbaResponse)
+@router.post("/winning-proba", response_model=WinningProbaResponse)
 def winning_proba(state: TicTacToeStateModel):
     domain_state = state.to_domain()
     probability = ai_service.get_winning_probability(domain_state)
+
+    # round to 2 decimal places for API response
+    probability = round(probability, 2)
+
     return WinningProbaResponse(probability=probability)
