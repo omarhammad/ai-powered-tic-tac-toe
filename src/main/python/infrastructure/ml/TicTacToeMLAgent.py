@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import numpy as np
 import xgboost as xgb
+import mlflow.sklearn
 
 from src.main.python.domain.TicTacToeState import TicTacToeState
 from src.main.python.domain.enums.enums import Player
@@ -34,31 +35,34 @@ def _move_number(board: List[str]) -> int:
 @dataclass
 class TicTacToeMLAgent:
     policy_model_path: str
-    win_model_path: Optional[str] = None  # intentionally optional
+    win_model_path: Optional[str] = None
 
     def __post_init__(self) -> None:
         try:
             # -------------------------------------------------
-            # POLICY MODEL (XGBoost Booster)
+            # POLICY MODEL (XGBoost)
             # -------------------------------------------------
             self._policy = xgb.Booster()
             self._policy.load_model(self.policy_model_path)
 
             # -------------------------------------------------
-            # WIN MODEL (NOT LOADED YET)
+            # WIN MODEL (Sklearn via MLflow)
             # -------------------------------------------------
-            self._win = None  # placeholder for future use
+            self._win = None
+            if self.win_model_path:
+                self._win = mlflow.sklearn.load_model(self.win_model_path)
 
         except Exception as e:
             raise RuntimeError(
-                "Failed to load POLICY model.\n"
+                "Failed to load ML models.\n"
                 "Ensure:\n"
-                "- policy_model_path points to a valid XGBoost .json file\n"
-                "- xgboost is installed\n"
+                "- policy_model_path points to a valid XGBoost .json\n"
+                "- win_model_path points to MLflow sklearn artifacts\n"
+                "- correct Python environment is active\n"
             ) from e
 
     # -------------------------------------------------
-    # POLICY MOVE SELECTION (XGBOOST)
+    # POLICY MOVE SELECTION
     # -------------------------------------------------
 
     def choose_move(self, state: TicTacToeState) -> int:
@@ -75,13 +79,35 @@ class TicTacToeMLAgent:
         return int(np.argmax(probs))
 
     # -------------------------------------------------
-    # WIN PROBABILITY (DISABLED FOR NOW)
+    # WIN PROBABILITY
     # -------------------------------------------------
 
     def winning_probability(self, state: TicTacToeState) -> float:
-        raise NotImplementedError(
-            "Winning probability model is not loaded yet."
-        )
+        if self._win is None:
+            raise RuntimeError("WIN model not loaded.")
+
+        x = self._win_features(state)
+
+        probs = self._win.predict_proba(x)[0]
+        classes = self._win.classes_
+
+        # class mapping fixed at training time
+        label_map = {
+            0: "WIN_X",
+            1: "WIN_O",
+            2: "DRAW",
+        }
+
+        prob_map: Dict[str, float] = {
+            label_map[c]: float(p)
+            for c, p in zip(classes, probs)
+        }
+
+        # return probability that CURRENT player wins
+        if state.current_player == Player.X:
+            return prob_map["WIN_X"]
+        else:
+            return prob_map["WIN_O"]
 
     # -------------------------------------------------
     # FEATURE BUILDERS

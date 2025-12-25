@@ -8,7 +8,7 @@ from src.main.python.infrastructure.ml.TicTacToeMLAgent import TicTacToeMLAgent
 
 class AIService:
     _POLICY_MODEL_PATH = "src/main/resources/models/policy_model.json"
-    _WIN_MODEL_PATH = "src/main/resources/models/win_model.pkl"
+    _WIN_MODEL_PATH = "src/main/resources/models/win_model/artifacts"
 
     def __init__(self):
         self.current_difficulty: Difficulty = Difficulty.MEDIUM
