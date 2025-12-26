@@ -138,6 +138,12 @@ class GameService:
         difficulty = player.difficulty or self.default_ai_difficulty
         return self.ai_client.choose_move(session, difficulty=difficulty)
 
+    def get_winning_probability(self, sessionId, for_player: Mark) -> float:
+        session: GameSession = self.repo.find(sessionId)
+        if not session:
+            raise ValueError("Session not found")
+        return self.ai_client.winning_proba(session, for_player)
+
     # -------------------------------------------------------
     # PLATFORM LOGGING ONLY
     # -------------------------------------------------------

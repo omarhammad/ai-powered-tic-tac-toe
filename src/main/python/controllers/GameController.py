@@ -6,7 +6,9 @@ from src.main.python.config.config import settings
 from src.main.python.controllers.dtos.CreateSessionRequest import CreateSessionRequest
 from src.main.python.controllers.dtos.MoveRequest import MoveRequest
 from src.main.python.controllers.dtos.MoveResponse import MoveResponse
+from src.main.python.controllers.dtos.WinningProbaResponse import WinningProbaResponse
 from src.main.python.domain.GameSession import GameSession
+from src.main.python.domain.Mark import Mark
 from src.main.python.infrastructure.messaging.GameBcPublisher import GameBcPublisher
 from src.main.python.infrastructure.repositories.SessionRepository import SessionRepository
 from src.main.python.services.GameService import GameService
@@ -133,6 +135,17 @@ def apply_move(req: MoveRequest, svc: GameService = Depends(get_service_override
         isFinished=session.is_finished,
         winner=session.winner.value if session.winner else None
     )
+
+
+@router.get("/session/{sessionId}/winning-proba", response_model=WinningProbaResponse)
+def winning_proba(sessionId: str, svc: GameService = Depends(get_service_override)):
+    try:
+        return WinningProbaResponse(
+            x=svc.get_winning_probability(sessionId, Mark.X),
+            o=svc.get_winning_probability(sessionId, Mark.O),
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # -------------------------------------------------------
