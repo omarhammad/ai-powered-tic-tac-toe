@@ -131,3 +131,43 @@ def test_apply_move_error(fake_service):
 
     resp = client.post("/move", json=body)
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------
+# TEST: /session/{sessionId}/winning-proba
+# ---------------------------------------------------------
+def test_winning_proba_success(fake_service):
+    fake_service.get_winning_probability.side_effect = [
+        0.67,  # X probability
+        0.33,  # O probability
+    ]
+
+    resp = client.get("/session/s1/winning-proba")
+
+    assert resp.status_code == 200
+    data = resp.json()
+
+    assert data["x"] == 0.67
+    assert data["o"] == 0.33
+
+    # ensure service was called correctly
+    fake_service.get_winning_probability.assert_any_call("s1", Mark.X)
+    fake_service.get_winning_probability.assert_any_call("s1", Mark.O)
+
+
+def test_winning_proba_session_not_found(fake_service):
+    fake_service.get_winning_probability.side_effect = ValueError("Session not found")
+
+    resp = client.get("/session/unknown/winning-proba")
+
+    assert resp.status_code == 400
+    assert "Session not found" in resp.json()["detail"]
+
+
+def test_winning_proba_service_error(fake_service):
+    fake_service.get_winning_probability.side_effect = Exception("AI service error")
+
+    resp = client.get("/session/s1/winning-proba")
+
+    assert resp.status_code == 400
+    assert "AI service error" in resp.json()["detail"]
