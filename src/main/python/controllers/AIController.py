@@ -39,14 +39,12 @@ def choose_move(state: TicTacToeStateModel, difficulty: str = "medium"):
     return MoveResponse(index=move_index)
 
 
-@router.get("/winning-proba", response_model=WinningProbaResponse)
-def winning_proba():
-    """
-    GET /ai/winning-proba
+@router.post("/winning-proba", response_model=WinningProbaResponse)
+def winning_proba(state: TicTacToeStateModel):
+    domain_state = state.to_domain()
+    probability = ai_service.get_winning_probability(domain_state)
 
-    For now:
-      - returns a static probability.
-      - later: accept a TicTacToeState and compute real probability.
-    """
-    # Placeholder: static value
-    return WinningProbaResponse(probability=0.5)
+    # round to 2 decimal places for API response
+    probability = round(probability, 2)
+
+    return WinningProbaResponse(probability=probability)
