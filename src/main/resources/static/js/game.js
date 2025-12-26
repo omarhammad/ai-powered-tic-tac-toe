@@ -1,10 +1,3 @@
-// ---------------------------------------------------------
-// CLEAN & MINIMAL TIC-TAC-TOE FRONTEND LOGIC
-// - Polls backend every 1s
-// - Detects AI turns based on moveCount
-// - Fixes snapshot overwriting issue
-// ---------------------------------------------------------
-
 let state = null;
 let myRole = null;
 let lastProcessedMoveCount = -1;
@@ -50,7 +43,8 @@ function applyState(snapshot) {
     determineMyRole();
     renderUI();
 
-    // AI turn detection
+    updateWinningProba();
+
     const isAITurn =
         (state.currentTurn === "X" && state.playerX?.isAI) ||
         (state.currentTurn === "O" && state.playerO?.isAI);
@@ -70,7 +64,6 @@ function countMoves(board) {
 // DETERMINE HUMAN ROLE
 // ---------------------------------------------------------
 function determineMyRole() {
-    // snapshot may be partial, so guard this
     if (!state?.playerX || !state?.playerO) {
         myRole = null;
         return;
@@ -158,7 +151,7 @@ function renderInfoBanner() {
 
     if (state.isFinished) {
         banner.textContent = state.winner
-            ? `🏆 Winner: ${state.winner}`
+            ? `Winner: ${state.winner}`
             : "It's a draw!";
         banner.className = "info-banner info-winner";
         return;
@@ -218,4 +211,41 @@ async function tryMove(index) {
         const updated = await res.json();
         applyState(updated);
     }
+}
+
+async function updateWinningProba() {
+    if (!state) return;
+
+    const movesPlayed = state.board.filter(v => v !== null).length;
+
+    const xBar = document.getElementById("proba-x");
+    const oBar = document.getElementById("proba-o");
+
+    if (!xBar || !oBar) return;
+
+    // Force 50 / 50 at game start
+    if (movesPlayed === 0) {
+        xBar.style.width = "50%";
+        oBar.style.width = "50%";
+        return;
+    }
+
+    try {
+        const res = await fetch(`/session/${SESSION_ID}/winning-proba`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        const x = data.x;
+        const o = data.o;
+
+        const total = x + o;
+        if (total <= 0) return;
+
+        const xPct = Math.round((x / total) * 100);
+        const oPct = 100 - xPct;
+
+        xBar.style.width = `${xPct}%`;
+        oBar.style.width = `${oPct}%`;
+    } catch (_) {}
 }
