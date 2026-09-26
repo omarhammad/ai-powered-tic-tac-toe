@@ -1,325 +1,66 @@
-# Tic-Tac-Toe Game Backend (Python Refactor)
-A refactored and modernized Python version of the classic Tic-Tac-Toe game.
+# Tic-Tac-Toe Game Backend
 
+A Python game service for playing Tic-Tac-Toe through a browser or REST API. It manages game sessions and rules, connects to a separate AI service for computer moves and win probabilities, and publishes game state events to RabbitMQ for a wider game platform.
 
-## Game Source
-Original game (Java):  
-https://www.geeksforgeeks.org/java/tic-tac-toe-game-in-java/
+## Highlights
 
----
+- Supports human-versus-human and human-versus-AI sessions, with turn validation and win/draw detection.
+- Exposes FastAPI endpoints for session creation, game state, moves, and win probability estimates.
+- Provides a browser interface with a responsive board and regular state refreshes.
+- Requests AI moves and probability estimates from an external service; AI-versus-AI games are handled outside this backend.
+- Publishes state updates to a RabbitMQ topic exchange after moves.
+- Includes domain, service, repository, and API tests and a GitLab CI pipeline for compilation, tests, dependency scanning, and image builds.
 
-## Refactoring Process
+## Tech stack
 
----
+Python 3.11, FastAPI, Pydantic, Jinja2, vanilla JavaScript, RabbitMQ (`pika`), HTTPX, pytest, GitLab CI, and Cloud Native Buildpacks.
 
-### Prompt 1 — Understanding the Legacy Code
-**Purpose:** Understand what the original Java code does before rebuilding it.
+## Architecture
 
-**Prompt:**
-``` 
-I will give you legacy code for a Tic-Tac-Toe game written in java language.
-Please help me understand it in a structured way.
+| Area | Responsibility |
+| --- | --- |
+| `src/main/python/domain/` | Board, players, turns, and game rules |
+| `src/main/python/services/` | Session lifecycle, move handling, AI requests, and event creation |
+| `src/main/python/controllers/` | HTTP routes and request/response models |
+| `src/main/python/infrastructure/` | In-memory sessions, external AI client, and RabbitMQ publisher |
+| `src/main/resources/` | Browser template, styles, and JavaScript |
+| `src/tests/` | Automated tests |
 
-Please do the following:
+## Run locally
 
-1. Explain the game rules based on the code.
-2. List the main domain elements (board, players, moves, win check, etc.).
-3. Describe how the original code works step-by-step.
-4. Mention the main problems, code smells, or bad practices.
-5. Point out what needs to be improved when rebuilding in Python.
+From the repository root, create a Python 3.11 environment and install the dependencies:
 
-Give the answer in clear sections and keep it simple.
-
-{Game java code}
-
-```
----
-## Prompt 2 — Rebuilding the Domain Layer in Python
-**Purpose:** Create a clean, testable Domain Layer based on the original Java logic.
-
-**Prompt:**
-```
-Using the legacy code summary, please rewrite the game in clean Python using a layered architecture.
-
-Focus only on the Domain Layer.  
-Do not include FastAPI, I/O, UI, databases, or logging yet.
-
-Requirements:
-- Follow good software engineering practices.
-- Use classes for GameSession, Board, and Rules.
-- Keep everything pure and testable.
-- No external libraries.
-- Support: making moves, switching turns, checking win/draw, and getting board state.
-
-Please output clean and well-organized Python code.
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn src.main.python.main:app --reload --port 8090
 ```
 
-## Prompt 3 — Add Gameplay Logging Hooks
-**Purpose:** Add logging points required by the assignment without implementing the backend yet.
+On Windows, activate the environment with `.venv\Scripts\activate`.
 
-**Prompt:**
-```
-Please extend my current Domain and Service Layer so the game supports gameplay logging.
+The API is available at `http://127.0.0.1:8090`, with interactive documentation at `/docs`. Sessions are held in memory, so restarting the process clears them. For AI moves and win probabilities, run the companion AI service and set `AI_BASE_URL` to its `/ai` base URL. For event delivery, configure `AMQP_URL` for an accessible RabbitMQ broker. The application reads these values from environment variables or a local `.env` file; the defaults are in `src/main/python/config/config.py`.
 
-Add a simple logging interface called “LoggingService” with methods like:
-- log_move(sessionId, playerId, boardState, moveIndex, timestamp)
-- log_state(sessionId, boardState, turn, moveCount, timestamp)
-- log_end(sessionId, result, finalBoardState, timestamp)
+### Try a game
 
-Then:
-- Update GameSession or GameService so it calls the logging methods at the correct points.
-- Do NOT implement the actual logging here. Only create the LoggingService interface and show where it will be used.
+Create a human-versus-human session:
 
-Please keep the explanation short and easy to understand.
+```bash
+curl -X POST http://127.0.0.1:8090/session/create \
+  -H 'Content-Type: application/json' \
+  -d '{"sessionId":"demo-game","player_x_id":"player-x","player_o_id":"player-o","player_x_name":"Player X","player_o_name":"Player O","player_x_is_ai":false,"player_o_is_ai":false}'
 ```
 
----
+Open either URL in the `gamePlayableUrls` response. Each URL identifies a player. The backend also exposes `GET /sessions/{sessionId}`, `POST /move`, and `GET /session/{sessionId}/winning-proba`. Probability estimates require the external AI service.
 
-## Prompt 4 — Prepare for AI Support
-**Purpose:** Allow the game engine to support AI players later.
+## Tests
 
-**Prompt:**
-```
-Please extend the Service Layer so the game can support an AI player.
-
-Create a simple interface called “AiStrategy” with:
-- choose_move(gameSession) -> int
-
-Then update the GameService so that:
-- The service checks if the current turn belongs to an AI player.
-- If it is an AI turn, GameService calls choose_move().
-- The move is applied using the same GameSession logic as a human move.
-- All logging actions should still be triggered.
-
-I only need the interface and updated GameService code. Please do not implement the AI algorithm yet.
+```bash
+pytest -q
 ```
 
+The tests cover the game rules, application service, in-memory repository, and API behavior.
 
----
+## Related project
 
-## Prompt 5 — Build the Infrastructure Layer
-**Purpose:** Create the storage and logging clients used by the Service Layer.
-
-**Prompt:**
-```
-Please build the Infrastructure Layer for my layered architecture game engine.
-
-I need:
-
-1. A SessionRepository that stores GameSession objects in memory.
-2. A LoggingClient that sends HTTP POST requests to the Java backend to store gameplay logs.
-3. Both components should be simple classes that the Service Layer can use.
-4. Add short comments to help explain what each class does.
-
-Keep everything simple and written in clean Python.
-```
-
-
----
-
-## Prompt 6 — Build the FastAPI Controller Layer
-**Purpose:** Expose REST endpoints for the platform and frontend.
-
-**Prompt:**
-```
-Please create the API Layer (FastAPI controllers) for my layered architecture game engine.
-
-The controllers should include:
-
-1. POST /session/create   
-   - Called by the Java Game BC  
-   - Creates a new GameSession  
-   - Returns sessionId and the URL for the game UI page
-
-2. GET /sessions/{sessionId}
-
-   - Called by the game frontend (game.js)
-   - Returns the full current game session as JSON, including: 
-                  sessionId, board, currentTurn, playerX, playerO, isFinished, winner
-   - Allows the UI to initialize and update without injecting variables in HTML
-   - Uses only the Service Layer
-
-3. POST /move  
-   - Called by the game frontend  
-   - Applies a move through the Service Layer  
-   - Logs the move to the Java backend  
-   - Returns the updated board and turn
-
-4. GET /play/{sessionId}  
-   - Returns the HTML template for the game UI
-   
-The controllers should call into the Service Layer and not talk to Domain or Infrastructure directly.
-```
-
----
-
-## Prompt 7 — Create Unit Tests (Human vs Human)
-**Purpose:** Build the required unit test suite for the Domain and Service layers.
-
-**Prompt:**
-```
-Please create a complete pytest unit test suite for my Python Tic-Tac-Toe game engine using a layered architecture.
-
-Important notes:
-- The AI feature is NOT implemented yet, so please test only Human vs Human gameplay.
-- The Java Game BC logging backend does not exist yet, so the LoggingClient must be mocked using a simple stub or MagicMock.
-- The tests should focus on testing the Domain Layer and the Service Layer.
-
-Tests needed:
-
-1. Test GameSession (Domain Layer):
-   - A valid move is applied correctly.
-   - An invalid move (cell already taken) raises an exception.
-   - An invalid move (playing when it's not your turn) raises an exception.
-   - The turn switches between players after each valid move.
-   - Win detection works for:
-     * Horizontal rows
-     * Vertical columns
-     * Both diagonals
-   - A draw is detected when the board is full and no winner exists.
-
-2. Test GameService (Application/Service Layer):
-   - play_move() loads the session from the repository and applies a move.
-   - play_move() calls logger.log_move() with the correct arguments (mocked logger).
-   - play_move() returns the updated GameSession.
-   - If the move is invalid, play_move() must NOT call the logger.
-
-3. Test SessionRepository (Infrastructure layer — in-memory):
-   - Saving a session stores it correctly.
-   - Retrieving a session returns the right object.
-   - Retrieving a non-existing session returns None.
-
-General rules:
-- Use pytest for all tests.
-- Use MagicMock from unittest.mock to mock the LoggingClient.
-- Do NOT write any tests for AI, since AI is not implemented yet.
-- Keep all tests easy to read and suitable for a student project.
-
-Please output these files:
-- tests/test_game_session.py
-- tests/test_game_service.py
-- tests/test_session_repository.py
-
-Make sure the code is clean, simple, and ready to run in my current project.
-```
-
----
-
-## Prompt 8 — Base HTML Template
-
-**Purpose:** Generate the initial play.html structure with only sessionId injected.
-
-**Prompt:**
-
-```
-Generate a clean base play.html template for my Tic-Tac-Toe game. FastAPI injects only one variable:
-
-const SESSION_ID = "{{ sessionId }}";
-
-All other game data will be fetched in JavaScript using:
-GET /sessions/{SESSION_ID}
-
-Create a minimal HTML structure including:
-- Game title
-- A section for session ID, players, current turn, and winner (empty placeholders filled by JS)
-- A <div id="board"></div> for the 3×3 grid
-- Link to /static/css/style.css
-- Script tag for /static/js/game.js
-- A script block that contains only the SESSION_ID variable
-
-Keep it simple and structural. No styling or JS logic yet.
-
-Output only the play.html code.
-```
-
----
-
-## Prompt 9 — Enhanced HTML + CSS
-
-**Purpose:** Improve play.html and generate a modern, attractive style.css.
-
-**Prompt:**
-
-```
-Refine the previously generated play.html to prepare it for styling. Keep injecting only:
-
-const SESSION_ID = "{{ sessionId }}";
-
-Add class and ID hooks needed for CSS:
-- .container
-- .players
-- .turn
-- .status
-- #winner
-- #board
-- .cell
-
-Then generate a complete style.css with a modern, attractive UI:
-- Centered responsive layout
-- Clean fonts and spacing
-- A 3×3 responsive grid with equal cells
-- Rounded corners and soft shadows
-- Hover effect for empty cells
-- Large, bold X and O styling
-- Styled winner/draw message
-- Mobile-friendly layout
-
-Output two files:
-1) updated play.html
-2) style.css
-```
-
----
-
-## Prompt 10 — Full JavaScript Logic
-
-**Purpose:** Generate game.js using only injected sessionId and backend endpoints.
-
-**Prompt:**
-
-```
-Generate a complete game.js file for the Tic-Tac-Toe frontend.
-
-Only one variable is injected into the HTML:
-const SESSION_ID = "{{ sessionId }}";
-
-All game state must be fetched from:
-GET /sessions/{SESSION_ID}
-
-The response includes:
-sessionId, board, currentTurn,
-playerX { id, isAI }, playerO { id, isAI },
-isFinished, winner.
-
-Moves are applied via:
-POST /move
-Body: { sessionId, playerId, moveIndex }
-
-JavaScript requirements:
-1. On page load:
-   - Fetch /sessions/{SESSION_ID}
-   - Fill UI: players, turn, winner/draw
-   - Render the 3×3 board
-
-2. Board rendering:
-   - Create clickable cells in #board
-   - Ignore clicks on filled cells or when game is finished
-
-3. On valid click:
-   - Determine player ID based on currentTurn
-   - POST /move
-   - Update UI based on returned state
-
-4. Use clean helper functions:
-   - loadSession()
-   - renderBoard()
-   - renderInfo()
-   - sendMove(index)
-   - updateState()
-
-Use only vanilla JavaScript. Output only the game.js code.
-```
-
----
-
-
+The companion AI service supplies computer moves and win probability estimates. This repository contains the playable game and its integration with that service.
