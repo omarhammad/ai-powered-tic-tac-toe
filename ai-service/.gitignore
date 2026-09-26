@@ -1,0 +1,53 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.dll
+
+# Virtual environment
+.env
+.venv/
+env/
+venv/
+
+# FastAPI / Uvicorn logs
+*.log
+
+# Python tooling
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+ruff_cache/
+.cache/
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+
+# Static / generated files
+staticfiles/
+uploads/
+
+# OS files
+.DS_Store
+
+# Secrets / environment config
+*.env
+.env.*
+secrets.json
+
+# --- IntelliJ / PyCharm / JetBrains IDE settings ---
+
+# Ignore workspace & user-specific settings
+.idea/
+
+
+# Ignore module files and caches that get regenerated
+*.iml
+*.iws
+.idea_modules/
+out/
