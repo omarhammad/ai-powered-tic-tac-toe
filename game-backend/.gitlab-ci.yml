@@ -1,0 +1,77 @@
+stages:
+  - compile
+  - test
+  - build
+  - deploy
+
+
+compile-job:
+  stage: compile
+  image: python:3.11-slim
+  before_script:
+    - apt-get update && apt-get install -y git
+  script:
+    - pip install -r requirements.txt
+    - python -m py_compile $(git ls-files '*.py')
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+
+test-job:
+  stage: test
+  image: python:3.11-slim
+  needs: ["compile-job"]
+  script:
+    - pip install --no-cache-dir -r requirements.txt
+    - pytest --maxfail=1 --disable-warnings --junitxml=pytest.xml -q
+  artifacts:
+    when: always
+    reports:
+      junit: pytest.xml
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+
+
+build-image-job:
+  stage: build
+  image: docker:27
+  needs: ["test-job"]
+  services:
+    - name: docker:27-dind
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    - apk add --no-cache curl docker-cli-buildx
+    - curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.32.0/pack-v0.32.0-linux.tgz" | tar -xz -C /usr/local/bin
+    - echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+  script:
+    - |
+      pack build docker.io/$DOCKERHUB_USERNAME/tictactoe_game:$CI_COMMIT_SHA \
+        --builder paketobuildpacks/builder:base \
+        --env "BP_CPYTHON_VERSION=3.11.x" \
+        --path . \
+        --publish
+    - docker pull docker.io/$DOCKERHUB_USERNAME/tictactoe_game:$CI_COMMIT_SHA
+    - docker tag docker.io/$DOCKERHUB_USERNAME/tictactoe_game:$CI_COMMIT_SHA docker.io/$DOCKERHUB_USERNAME/tictactoe_game:latest
+    - docker push docker.io/$DOCKERHUB_USERNAME/tictactoe_game:latest
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+
+
+
+deploy-job:
+  stage: deploy
+  image: alpine:latest
+  needs: ["build-image-job"]
+  script:
+    - echo "Deploying to production (Azure VM / Docker Compose) ..."
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+
+include:
+  template: Jobs/Dependency-Scanning.gitlab-ci.yml
